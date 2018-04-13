@@ -1,22 +1,25 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[2]:
 
 
 import utils
 dataDir = "../census_data/";
-annFile = "/DEC_10_PL_P3_with_ann.csv"
+# file with population data
+populationFile = "/DEC_10_PL_P3_with_ann.csv"
+# file with geographical data
+geoFile = "/DEC_10_PL_G001_with_ann.csv";
 dirs = utils.getSubdirs(dataDir)
 blocks = []
 # get all of the blocks into one list
 for d in dirs:
-    block,data = utils.getPopulationPerBlock(dataDir + d + annFile)
+    block,popData,geoData = utils.getBlocks(dataDir + d + populationFile,dataDir + d + geoFile)
     for b in block:
         blocks.append(b)
 
 
-# In[2]:
+# In[3]:
 
 
 #This is a population block

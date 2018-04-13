@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[6]:
+# In[40]:
 
 
 import re
@@ -25,13 +25,22 @@ def getTotalPopulation(data):
         if (key.find("Population") != -1):
             pop += int(data[key]);
     return pop
-def getPopulationPerBlock(filename):
-    with open(filename) as f:
+
+def getBlocks(popFilename,geoFilename):
+    # read the poulation data
+    with open(popFilename) as f:
         # skip the first "header" row
         next(f);
         # read the data as a dictionary
         reader = csv.DictReader(f)
         data = [r for r in reader]
+    # read the geo data
+    with open(geoFilename) as geoFile:
+        # skip the first "header" row
+        next(geoFile);
+        # read the data as a dictionary
+        geoReader = csv.DictReader(geoFile)
+        geoData = [r for r in geoReader]
     numCensusBlocks = len(data)
     # populationBlocks is a list of maps, one map per census block
     populationBlocks = [];
@@ -43,9 +52,19 @@ def getPopulationPerBlock(filename):
     populationKey = 'Population'
     countyKey = 'County';
     censusTractKey = "Census_Tract"
+    latKey = "Latitude";
+    latLookup = "AREA CHARACTERISTICS - Internal Point (Latitude)";
+    longLookup = "AREA CHARACTERISTICS - Internal Point (Longitude)";
+    longKey = "Longitude"
     for i in range(numCensusBlocks):
         block = {};
         geoId = int(data[i][geoIdKey]);
+        # make sure the id's match
+        if(geoId != int(geoData[i][geoIdKey])):
+            print("error!")
+            return
+        block[latKey] = geoData[i][latLookup];
+        block[longKey] = geoData[i][longLookup];
         block[geoIdKey] = geoId;
         blockId,blockGroupId,censusTract,county,state = getGeography(data[i][geoKey]);
         block[blockKey] = blockId;
@@ -53,8 +72,11 @@ def getPopulationPerBlock(filename):
         block[populationKey] = totalPopulation;
         block[countyKey] = county;
         block[censusTractKey] = censusTract;
-        populationBlocks.append(block)
-    return populationBlocks,data
+        # Add lat/long data
+        block[latKey] = geoData[i][latLookup];
+        block[longKey] = geoData[i][longLookup];
+        populationBlocks.append(block)    
+    return populationBlocks,data,geoData
 def getSubdirs(dir):
     #"Get a list of immediate subdirectories"
     return next(os.walk(dir))[1]
