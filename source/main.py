@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[2]:
+# In[1]:
 
 
 import utils
@@ -19,9 +19,15 @@ for d in dirs:
         blocks.append(b)
 
 
-# In[3]:
+# In[2]:
 
 
 #This is a population block
 blocks[3]
+
+
+# In[2]:
+
+
+who
 
