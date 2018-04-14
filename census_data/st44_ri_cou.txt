@@ -1,0 +1,6 @@
+State,State(Fips),County(Fips),County,County Fips Class Code
+RI,44,001,Bristol County,H4
+RI,44,003,Kent County,H4
+RI,44,005,Newport County,H4
+RI,44,007,Providence County,H4
+RI,44,009,Washington County,H4
