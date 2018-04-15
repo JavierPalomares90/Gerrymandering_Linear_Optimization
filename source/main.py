@@ -5,11 +5,11 @@
 
 
 import utils
-dataDir = "../census_data/";
+dataDir = "../census_data/"
 # file with population data
 populationFile = "/DEC_10_PL_P3_with_ann.csv"
 # file with geographical data
-geoFile = "/DEC_10_PL_G001_with_ann.csv";
+geoFile = "/DEC_10_PL_G001_with_ann.csv"
 dirs = utils.getSubdirs(dataDir)
 blocks = []
 # get all of the blocks into one list
@@ -23,11 +23,11 @@ for d in dirs:
 
 
 #This is a population block
-blocks[3]
+print(blocks[3])
 
 
 # In[2]:
 
 
-who
+#who
 
