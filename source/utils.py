@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[10]:
+# In[27]:
 
 
 import re
@@ -25,6 +25,9 @@ def getTotalPopulation(data):
         if (key.find("Population") != -1):
             pop += int(data[key]);
     return pop
+def getFipsCountyCode(stateCode,countyCode):
+    code = "%d%03d" %(stateCode,countyCode);
+    return int(code)
 
 def getBlocks(popFilename,geoFilename):
     # read the poulation data
@@ -56,6 +59,9 @@ def getBlocks(popFilename,geoFilename):
     latLookup = "AREA CHARACTERISTICS - Internal Point (Latitude)";
     longLookup = "AREA CHARACTERISTICS - Internal Point (Longitude)";
     longKey = "Longitude";
+    fipsCodeKey = "FIPS Code";
+    stateLookup = "GEOGRAPHIC AREA CODES - State (FIPS)";
+    countyLookup = "GEOGRAPHIC AREA CODES - County";
     for i in range(numCensusBlocks):
         block = {};
         geoId = int(data[i][geoIdKey]);
@@ -75,6 +81,11 @@ def getBlocks(popFilename,geoFilename):
         # Add lat/long data
         block[latKey] = geoData[i][latLookup];
         block[longKey] = geoData[i][longLookup];
+        # Add fips code
+        state = int(geoData[i][stateLookup]);
+        county = int(geoData[i][countyLookup]);
+        fipsCode = getFipsCountyCode(state, county);
+        block[fipsCodeKey] = fipsCode;
         populationBlocks.append(block)    
     return populationBlocks,data,geoData
 def getSubdirs(dir):
@@ -205,4 +216,37 @@ def invCoeffVar(districts):
     for district in districts:
         norm += (populationInDistrict(district) / meanPop - 1)**2
     return sqrt(norm/numDistricts)
+def getFipsPerCounty(filename):
+    # read the data
+    with open(filename) as f:
+        # read the data as a dictionary
+        reader = csv.DictReader(f)
+        data = [r for r in reader]
+    return data
+    
+# get the political data for the counties
+def getPoliDataByCounty(filename,fipsFileName):
+    # read the data
+    with open(filename) as f:
+        # read the data as a dictionary
+        reader = csv.DictReader(f)
+        data = [r for r in reader]
+    fipsData = getFipsPerCounty(fipsFileName);
+    counties = [];
+    for fip in fipsData:
+        county = {};
+        numObamaVoters = 0;
+        numRomneyVoters = 0;
+        fipCode = fip['State(Fips)']+fip['County(Fips)']
+        for votes in data:
+            if(votes['FIPS'] != fipCode):
+                continue;
+            # get rid of commas in the vote count
+            numObamaVoters += int(votes['Obama vote'].replace(',',''));
+            numRomneyVoters += int(votes['Romney vote'].replace(',',''));
+        fip['Obama vote'] = numObamaVoters;
+        fip['Romney vote'] = numRomneyVoters;
+    return fipsData
+
+        
 

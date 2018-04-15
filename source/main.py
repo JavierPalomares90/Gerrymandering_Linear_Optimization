@@ -17,17 +17,22 @@ for d in dirs:
     block,popData,geoData = utils.getBlocks(dataDir + d + populationFile,dataDir + d + geoFile)
     for b in block:
         blocks.append(b)
+# read the political data
+fipsDataFile = "../census_data/st44_ri_cou.txt";
+poliDataFile = "../political_data/US_elect_county.csv";
+counties = utils.getPoliDataByCounty(poliDataFile,fipsDataFile);
 
 
-# In[2]:
+# In[5]:
 
 
 #This is a population block
 print(blocks[3])
 
-
 # In[2]:
 
 
 #who
+# This is a vote by county
+print(counties[0])
 
