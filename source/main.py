@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[4]:
+# In[1]:
 
 
 # coding: utf-8
@@ -51,4 +51,10 @@ print(blocks[3])
 # This is a vote by county
 #print(counties[0])
 
+
+
+# In[2]:
+
+
+u = utils.getNumBlockInDistrict(blocks)
 

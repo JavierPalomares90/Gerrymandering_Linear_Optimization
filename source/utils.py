@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[14]:
+# In[1]:
 
 
 import re
@@ -261,6 +261,24 @@ def getPoliDataByCounty(filename,fipsFileName):
         fip['Obama vote'] = numObamaVoters;
         fip['Romney vote'] = numRomneyVoters;
     return fipsData
+
+# get u_i_j = number people in block i assigned to district j
+def getNumBlockInDistrict(blocks):
+    u= [];
+    for block in blocks:
+        u_i_j = {};
+        population = block['Population'];
+        district = int(block['Congressional District']);
+        nd=1;
+        if(district==1):
+            nd = 2;
+        # blocks have all their population assigned to a single district
+        u_i_j[district] = population;
+        u_i_j[nd] = 0;
+        u_i_j['Id2'] = block['Id2'];
+        u.append(u_i_j);
+    return u
+    
 
         
 
