@@ -3,6 +3,11 @@
 
 # In[1]:
 
+
+# coding: utf-8
+
+# In[1]:
+
 from gurobipy import *
 import utils
 from math import radians, sin, cos, acos
@@ -11,26 +16,28 @@ import numpy as np
 
 
 def readData():
-    dataDir = "../census_data/"
+    dataDir = "../census_data/";
     # file with population data
     populationFile = "/DEC_10_PL_P3_with_ann.csv"
     # file with geographical data
-    geoFile = "/DEC_10_PL_G001_with_ann.csv"
+    geoFile = "/DEC_10_PL_G001_with_ann.csv";
+    # file with the congressional districts per block
+    cdFile = "../cd115/National_CD115.txt"
     dirs = utils.getSubdirs(dataDir)
     blocks = []
     # get all of the blocks into one list
     count = 0
     for d in dirs:
-        block,popData,geoData = utils.getBlocks(dataDir + d + populationFile,dataDir + d + geoFile)
+        block,popData,geoData = utils.getBlocks(dataDir + d + populationFile,dataDir + d + geoFile,cdFile)
         for b in block:
             blocks.append(b)
             count = count + 1
             if count > 6:
                 break
     # read the political data
-    fipsDataFile = "../census_data/st44_ri_cou.txt"
-    poliDataFile = "../political_data/US_elect_county.csv"
-    counties = utils.getPoliDataByCounty(poliDataFile,fipsDataFile)
+    fipsDataFile = "../census_data/st44_ri_cou.txt";
+    poliDataFile = "../political_data/US_elect_county.csv";
+    counties = utils.getPoliDataByCounty(poliDataFile,fipsDataFile);
     return (blocks, counties)
 
 
@@ -63,7 +70,7 @@ def getCostsArcsCapacity(blocks, districts):
 
 
 def assign(blocks, districts, counties):
-    print(blocks)
+    #print(blocks)
     # gurobi network flow example: http://www.gurobi.com/documentation/7.5/examples/netflow_py.html
     #
     # cost function f(i,j) is the euclidian distance from block i to district j times population of block i
@@ -123,17 +130,24 @@ def assign(blocks, districts, counties):
 
 # In[5]:
 (blocks, counties) = readData()
-districts = [{'Latitude': '+41.1879323', 'Longitude': '-071.5828012'},
-             {'Latitude': '+41.1686180', 'Longitude': '-071.5928347'}]
 #This is a population block
-#print(blocks[3])
-#print(blocks[4])
-
-# In[2]:
-
-#who
+print(blocks[3])
 # This is a vote by county
 #print(counties[0])
 
+
+
+# In[2]:
+u = utils.getNumBlockInDistrict(blocks)
+
+districts = [{'Latitude': '+41.1879323', 'Longitude': '-071.5828012'},
+             {'Latitude': '+41.1686180', 'Longitude': '-071.5928347'}]
 assign(blocks[:6], districts, counties)
+
+
+
+
+
+
+
 

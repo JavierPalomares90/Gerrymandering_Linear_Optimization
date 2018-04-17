@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[27]:
+# In[1]:
 
 
 import re
@@ -29,7 +29,7 @@ def getFipsCountyCode(stateCode,countyCode):
     code = "%d%03d" %(stateCode,countyCode);
     return int(code)
 
-def getBlocks(popFilename,geoFilename):
+def getBlocks(popFilename,geoFilename,cdFilename):
     # read the poulation data
     with open(popFilename) as f:
         # skip the first "header" row
@@ -44,6 +44,14 @@ def getBlocks(popFilename,geoFilename):
         # read the data as a dictionary
         geoReader = csv.DictReader(geoFile)
         geoData = [r for r in geoReader]
+    # read the congressional district data
+    cdMapping = {}
+    with open(cdFilename) as cdFile:
+        # skip the header row
+        next(cdFile);
+        for line in cdFile:
+            blockId, districtId = line.partition(",")[::2]
+            cdMapping[int(blockId)] = districtId.rstrip();
     numCensusBlocks = len(data)
     # populationBlocks is a list of maps, one map per census block
     populationBlocks = [];
@@ -62,6 +70,7 @@ def getBlocks(popFilename,geoFilename):
     fipsCodeKey = "FIPS Code";
     stateLookup = "GEOGRAPHIC AREA CODES - State (FIPS)";
     countyLookup = "GEOGRAPHIC AREA CODES - County";
+    districtKey = "Congressional District";
     for i in range(numCensusBlocks):
         block = {};
         geoId = int(data[i][geoIdKey]);
@@ -86,6 +95,11 @@ def getBlocks(popFilename,geoFilename):
         county = int(geoData[i][countyLookup]);
         fipsCode = getFipsCountyCode(state, county);
         block[fipsCodeKey] = fipsCode;
+        districtId = cdMapping.get(geoId);
+        if districtId == None:
+            print(getoId)
+        # Add the district this block is currently part of
+        block[districtKey] = districtId;
         populationBlocks.append(block)    
     return populationBlocks,data,geoData
 def getSubdirs(dir):
@@ -247,6 +261,24 @@ def getPoliDataByCounty(filename,fipsFileName):
         fip['Obama vote'] = numObamaVoters;
         fip['Romney vote'] = numRomneyVoters;
     return fipsData
+
+# get u_i_j = number people in block i assigned to district j
+def getNumBlockInDistrict(blocks):
+    u= [];
+    for block in blocks:
+        u_i_j = {};
+        population = block['Population'];
+        district = int(block['Congressional District']);
+        nd=1;
+        if(district==1):
+            nd = 2;
+        # blocks have all their population assigned to a single district
+        u_i_j[district] = population;
+        u_i_j[nd] = 0;
+        u_i_j['Id2'] = block['Id2'];
+        u.append(u_i_j);
+    return u
+    
 
         
 
