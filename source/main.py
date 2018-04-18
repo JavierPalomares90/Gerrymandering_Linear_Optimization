@@ -64,9 +64,9 @@ def connected(start, end):
 def getCostsArcsCapacity(blocks, districts):
     f = np.empty((len(blocks), len(districts)))
     arcs = tuplelist()
-    numeric_Arcs = tuplelist()
     capacity = {}
     totalPop = 0
+    maxPop = 0
     for i,block in enumerate(blocks):
     #     totalPop += block_start["Population"]
     #     for j,block_end in enumerate(blocks):
@@ -79,11 +79,13 @@ def getCostsArcsCapacity(blocks, districts):
         for j, district in enumerate(districts):
             f[i, j] = getDistance(block, district)
             arc = (i, j)
-            #arc = (block["Block"], j)
             arcs.append(arc)
-            #numeric_Arcs.append((i, j))
-            capacity[arc] = block["Population"]
-    return (f, arcs, capacity, totalPop)
+            pop = block["Population"]
+            capacity[arc] = pop
+            totalPop += pop
+            if pop > maxPop:
+                maxPop = pop
+    return (f, arcs, capacity, totalPop, maxPop)
 
 
 def drawMap(solution, blocks, n, m):
@@ -110,7 +112,7 @@ def assign(blocks, districts, counties):
     # we can create a cost matrix f with rows being blocks and columns being districts
     # we can write the edges u as constrained to 0 or 1 indicating whether block i is assigned to district j
     #
-    (f, arcs, capacity, totalPop) = getCostsArcsCapacity(blocks, districts)
+    (f, arcs, capacity, totalPop, maxPop) = getCostsArcsCapacity(blocks, districts)
     #print(f)
     #print(capacity)
 
@@ -119,8 +121,10 @@ def assign(blocks, districts, counties):
     print(totalPop)
     pop_lower = 0.1 * totalPop
     pop_upper = 0.9 * totalPop
-    M = 1000 # should be as large as the largest block population. might calculate dynamically
+    M = maxPop * 10 # should be as large as the largest block population. might calculate dynamically
 
+    pop_cost = 3
+    distance_cost = 1
 
     # Create optimization model
     model = Model('netflow')
@@ -128,10 +132,14 @@ def assign(blocks, districts, counties):
     # Create variables
     flow = model.addVars(n, m, name="flow")
     indic = model.addVars(n, m, vtype=GRB.INTEGER, lb=0, ub=1, name="indic")
+    smallest = model.addVar(name="min")
+    largest = model.addVar(name="max")
+    gap = model.addVar(name="gap")
 
 
     # d[i,j] * population of block i * indic[i,j]
-    model.setObjective((quicksum(f[i,j] * blocks[i]["Population"] * indic[i,j] for i in range(n) for j in range(m))), GRB.MINIMIZE)
+    model.setObjective((distance_cost * quicksum(f[i,j] * blocks[i]["Population"] * indic[i,j] for i in range(n) for j in range(m)) +
+                       pop_cost * gap), GRB.MINIMIZE)
     #model.setObjective((f[i,j] * blocks[i]["Population"] for i in range(n) for j in range(m)), GRB.MINIMIZE)
 
     # Arc capacity constraints
@@ -142,9 +150,13 @@ def assign(blocks, districts, counties):
     model.addConstrs((flow[i, j] <= M * indic[i, j] for i in range(n) for j in range(m)))
     model.addConstrs((indic.sum(i, '*') == 1 for i in range(n)))
 
+    model.addConstrs( smallest <= flow.sum('*', j) for j in range(m))
+    model.addConstrs( largest >= flow.sum('*', j) for j in range(m))
+    model.addConstr(gap == largest - smallest)
+
     # to keep population "equal"
-    model.addConstrs( (flow.sum('*', j) >= pop_lower for j in range(m)))
-    model.addConstrs( (flow.sum('*', j) <= pop_upper for j in range(m)))
+    #model.addConstrs( (flow.sum('*', j) >= pop_lower for j in range(m)))
+    #model.addConstrs( (flow.sum('*', j) <= pop_upper for j in range(m)))
 
 
     model.optimize()
@@ -153,8 +165,8 @@ def assign(blocks, districts, counties):
     if model.status == GRB.Status.OPTIMAL:
         solution = model.getAttr('x', flow)
         indic_sol = model.getAttr('x', indic)
-        print(solution)
-        print(indic_sol)
+        #print(solution)
+        #print(indic_sol)
         for j in range(m):
             totalPop = 0
             blocks_assigned = []
@@ -162,8 +174,8 @@ def assign(blocks, districts, counties):
                 if indic_sol[i, j] > 0:
                     blocks_assigned.append(i)
                     totalPop += solution[i,j]
-            print("For district " + str(j) + ": the population is " + str(totalPop)
-                 + " and the assigned blocks are " + str(blocks_assigned) + "\n")
+            print("For district " + str(j) + ": the population is " + str(totalPop))
+                 #+ " and the assigned blocks are " + str(blocks_assigned) + "\n")
         drawMap(indic_sol, blocks, n, m)
 
 # get the districtCenter by minimizing the population weighted squared
@@ -212,10 +224,11 @@ print(blocks[3])
 u = utils.getNumBlockInDistrict(blocks)
 #TODO: write method to figure out all districts
 districtList= [1,2]
-districtCenters = getDistrictCenters(blocks,u,districtList);
+districtCenters = getDistrictCenters(blocks,u,districtList)
+print(districtCenters)
 districts = [{'Latitude': districtCenters[1][1], 'Longitude': districtCenters[1][0]},
              {'Latitude': districtCenters[2][1], 'Longitude': districtCenters[2][0]}];
 #districts = [{'Latitude': '+41.1879323', 'Longitude': '-071.5828012'},
 #             {'Latitude': '+41.1686180', 'Longitude': '-071.5928347'}]
-assign(blocks[:6], districts, counties)
+assign(blocks, districts, counties)
 
