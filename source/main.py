@@ -4,6 +4,12 @@
 # In[1]:
 
 
+
+# coding: utf-8
+
+# In[1]:
+
+
 # coding: utf-8
 
 # In[1]:
@@ -26,14 +32,10 @@ def readData():
     dirs = utils.getSubdirs(dataDir)
     blocks = []
     # get all of the blocks into one list
-    count = 0
     for d in dirs:
         block,popData,geoData = utils.getBlocks(dataDir + d + populationFile,dataDir + d + geoFile,cdFile)
         for b in block:
             blocks.append(b)
-            count = count + 1
-            if count > 6:
-                break
     # read the political data
     fipsDataFile = "../census_data/st44_ri_cou.txt";
     poliDataFile = "../political_data/US_elect_county.csv";
@@ -127,6 +129,38 @@ def assign(blocks, districts, counties):
             print("For district " + str(j) + ": the population is " + str(totalPop)
                  + " and the assigned blocks are " + str(blocks_assigned) + "\n")
 
+# get the districtCenter by minimizing the population weighted squared
+# distances between electoralDistricts and blocks
+def getDistrictCenters(blocks,u,districtList):
+    I = len(blocks);
+    J = len(districtList);
+    
+    # collection of the x and y coordinates of the district centers
+    districtCenterCoords={};
+    for j in range(J):
+        districtId = districtList[j];
+        # finding the center for each district is an optimization problem
+        model = Model('District_%d_Centers' % j)
+        # by default gurobi wants optimal solutions to be non negative
+        x = model.addVar(lb = -360,name="x_%d" % j);
+        y = model.addVar(name="y_%d" % j);
+        objective = QuadExpr();
+        for i in range(I):
+            block = blocks[i];
+            blockId = block['Id2'];
+            x_i = float(block['Longitude']);
+            y_i = float(block['Latitude']);
+            u_i = u[i];
+            if(u_i['Id2'] != blockId):
+                raise ValueError('There is a mismatch in the blockIds at i=%d' % i)
+            u_i_j = u_i[districtId];
+            objective.add(u_i_j * ( (x-x_i)*(x-x_i) + (y-y_i)*(y-y_i)));
+        model.setObjective(objective)
+        model.setParam( 'OutputFlag', False );
+        model.optimize();
+        districtCenterCoords[districtId] = (x.X,y.X);
+    return districtCenterCoords
+        
 
 # In[5]:
 (blocks, counties) = readData()
@@ -139,15 +173,12 @@ print(blocks[3])
 
 # In[2]:
 u = utils.getNumBlockInDistrict(blocks)
-
+#TODO: write method to figure out all districts
+districtList= [1,2];
+districtCenters = getDistrictCenters(blocks,u,districtList);
+#districts = [{'Latitude': districtCenters[1][1], 'Longitude': districtCenters[1][0]},
+#             {'Latitude': districtCenters[2][1], 'Longitude': districtCenters[2][0]}];
 districts = [{'Latitude': '+41.1879323', 'Longitude': '-071.5828012'},
              {'Latitude': '+41.1686180', 'Longitude': '-071.5928347'}]
 assign(blocks[:6], districts, counties)
-
-
-
-
-
-
-
 
