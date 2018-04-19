@@ -21,7 +21,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from mpl_toolkits.basemap import Basemap
 # install basemap with: sudo -H pip3 install https://github.com/matplotlib/basemap/archive/v1.1.0.tar.gz
-
+from matplotlib.patches import Polygon
+from matplotlib.collections import PatchCollection
 
 
 
@@ -61,6 +62,7 @@ def getDistance(block, district):
 def connected(start, end):
     return True
 
+
 def getCostsArcsCapacity(blocks, districts):
     f = np.empty((len(blocks), len(districts)))
     arcs = tuplelist()
@@ -89,18 +91,30 @@ def getCostsArcsCapacity(blocks, districts):
 
 
 def drawMap(solution, blocks, n, m):
+    colors = ['m', 'b']
     fig = plt.figure(figsize=(8, 8))
-    map = Basemap(projection='merc', resolution='h',
-                  width=5E1, height=5E1,
-                  lat_0=40, lon_0=-70, )
-    #map.etopo(scale=0.5, alpha=0.5)
-    for j in range(m):
-        for i in range(n):
-            if solution[i, j] > 0:
-                block = blocks[i]
-                x, y = map(float(block["Longitude"]), float(block["Latitude"]))
-                plt.plot(x, y, 'ok', markersize=5)
-                plt.text(x, y, str(j), fontsize=12)
+    ax = fig.add_subplot(111)
+    map = Basemap(llcrnrlon=-72, llcrnrlat=40.9, urcrnrlon=-70.9, urcrnrlat=42.2,
+                  resolution='i', area_thresh=5000., projection='lcc',
+                  lat_1=40., lon_0=-071., ax=ax)
+    map.drawcoastlines()
+    map.drawcountries()
+    map.drawstates()
+
+    map.readshapefile('../census_block_shape_files/tl_2010_44_tabblock10', 'tl_2010_44_tabblock10', drawbounds=False)
+
+    patches = []
+    for i in range(m):
+        patches.append([])
+    count = 0
+    for info, shape in zip(map.tl_2010_44_tabblock10_info, map.tl_2010_44_tabblock10):
+        id = info['GEOID10']
+        district = solution[id]
+        patches[district].append(Polygon(np.array(shape), True))
+
+    for i in range(m):
+        ax.add_collection(PatchCollection(patches[i], facecolor=colors[i], edgecolor='k', linewidths=0., zorder=2))
+
     plt.show()
 
 
@@ -167,6 +181,7 @@ def assign(blocks, districts, counties):
         indic_sol = model.getAttr('x', indic)
         #print(solution)
         #print(indic_sol)
+        sol_map = {}
         for j in range(m):
             totalPop = 0
             blocks_assigned = []
@@ -174,9 +189,10 @@ def assign(blocks, districts, counties):
                 if indic_sol[i, j] > 0:
                     blocks_assigned.append(i)
                     totalPop += solution[i,j]
+                    sol_map[str(blocks[i]['Id2'])] = j
             print("For district " + str(j) + ": the population is " + str(totalPop))
                  #+ " and the assigned blocks are " + str(blocks_assigned) + "\n")
-        drawMap(indic_sol, blocks, n, m)
+        drawMap(sol_map, blocks, n, m)
 
 # get the districtCenter by minimizing the population weighted squared
 # distances between electoralDistricts and blocks
