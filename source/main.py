@@ -4,16 +4,6 @@
 # In[1]:
 
 
-
-# coding: utf-8
-
-# In[1]:
-
-
-# coding: utf-8
-
-# In[1]:
-
 from gurobipy import *
 import utils
 from math import radians, sin, cos, acos
@@ -247,4 +237,13 @@ districts = [{'Latitude': districtCenters[1][1], 'Longitude': districtCenters[1]
 #districts = [{'Latitude': '+41.1879323', 'Longitude': '-071.5828012'},
 #             {'Latitude': '+41.1686180', 'Longitude': '-071.5928347'}]
 assign(blocks, districts, counties)
+
+
+
+# In[2]:
+
+
+shapesDir = "../census_block_shape_files/tl_2010_44_tabblock10";
+neigbors = utils.getNeighbors(shapesDir)
+print(neigbors[0])
 
