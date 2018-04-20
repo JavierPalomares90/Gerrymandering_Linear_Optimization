@@ -1,6 +1,8 @@
+
 # coding: utf-8
 
 # In[1]:
+
 
 from gurobipy import *
 import utils
@@ -78,7 +80,7 @@ def getCostsArcsCapacity(blocks, districts):
     return (f, arcs, capacity, totalPop, maxPop)
 
 
-def drawMap(solution, blocks, n, m):
+def drawMap(solution, m):
     colors = ['m', 'b']
     fig = plt.figure(figsize=(8, 8))
     ax = fig.add_subplot(111)
@@ -104,6 +106,29 @@ def drawMap(solution, blocks, n, m):
         ax.add_collection(PatchCollection(patches[i], facecolor=colors[i], edgecolor='k', linewidths=0., zorder=2))
 
     plt.show()
+
+
+def analyzeSolution(counties, blocks, solution, indic_sol, n, m):
+    sol_map = {}
+    popResult = []
+    raceResult = []
+    polResult = []
+    county_distr = {}
+    for j in range(m):
+        totalPop = 0
+        blocks_assigned = []
+        for i in range(n):
+            if indic_sol[i, j] > 0:
+                blocks_assigned.append(i)
+                totalPop += solution[i, j]
+                sol_map[str(blocks[i]['Id2'])] = j
+        print("For district " + str(j) + ": the population is " + str(totalPop))
+        # + " and the assigned blocks are " + str(blocks_assigned) + "\n")
+    return sol_map
+
+
+def calcMetrics():
+    return []
 
 
 def assign(blocks, districts, counties):
@@ -170,18 +195,9 @@ def assign(blocks, districts, counties):
         indic_sol = model.getAttr('x', indic)
         #print(solution)
         #print(indic_sol)
-        sol_map = {}
-        for j in range(m):
-            totalPop = 0
-            blocks_assigned = []
-            for i in range(n):
-                if indic_sol[i, j] > 0:
-                    blocks_assigned.append(i)
-                    totalPop += solution[i,j]
-                    sol_map[str(blocks[i]['Id2'])] = j
-            print("For district " + str(j) + ": the population is " + str(totalPop))
-                 #+ " and the assigned blocks are " + str(blocks_assigned) + "\n")
-        drawMap(sol_map, blocks, n, m)
+        sol_map = analyzeSolution(counties, blocks, solution, indic_sol, n, m)
+        fairness = calcMetrics()
+        drawMap(sol_map, m)
 
 # get the districtCenter by minimizing the population weighted squared
 # distances between electoralDistricts and blocks
@@ -236,4 +252,13 @@ districts = [{'Latitude': districtCenters[1][1], 'Longitude': districtCenters[1]
 #districts = [{'Latitude': '+41.1879323', 'Longitude': '-071.5828012'},
 #             {'Latitude': '+41.1686180', 'Longitude': '-071.5928347'}]
 assign(blocks, districts, counties)
+
+
+
+# In[2]:
+
+
+shapesDir = "../census_block_shape_files/tl_2010_44_tabblock10";
+neigbors = utils.getNeighbors(shapesDir)
+print(neigbors[0])
 

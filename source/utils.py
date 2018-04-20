@@ -1,12 +1,14 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[4]:
 
 
 import re
 import csv
 import os
+import shapefile
+import pysal as ps
 def getGeography(s):
     strings = s.split(',')
     if(len(strings) < 5):
@@ -278,7 +280,29 @@ def getNumBlockInDistrict(blocks):
         u_i_j['Id2'] = block['Id2'];
         u.append(u_i_j);
     return u
-    
 
+def getNeighbors(shapefileDir):
+    neighborsMap = []
+    sf = shapefile.Reader(shapefileDir);
+    records = sf.records();
+    # choose the "queen" neighbors. This means shapes are neighbors as long as they share a vertex.
+    # alternative is the "rook", where shapes must share an edge.
+    w = ps.queen_from_shapefile(shapefileDir+".shp");
+    N = w.n;
+    for i in range(N):
+        # blockId is the field in index 4
+        blockId = int(records[i][4]);
+        # this var is a map containing the neighbors of block i, where the key is the neighbor, and value is the weight
+        neighbors = w[i];
+        # rearrange the map so we get everything by blockId instead of the index in the list
+        tmp = {};
+        tmp['Id2'] = blockId;
+        neighborList = []
+        for n in neighbors.keys():
+            neighborId = int(records[n][4]);
+            neighborList.append(neighborId);
+        tmp['neighbors'] = neighborList;
+        neighborsMap.append(tmp);
+    return neighborsMap
         
 
