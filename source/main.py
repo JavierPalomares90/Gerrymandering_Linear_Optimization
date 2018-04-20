@@ -1,15 +1,3 @@
-
-# coding: utf-8
-
-# In[1]:
-
-
-
-# coding: utf-8
-
-# In[1]:
-
-
 # coding: utf-8
 
 # In[1]:
@@ -106,7 +94,7 @@ def drawMap(solution, blocks, n, m):
     patches = []
     for i in range(m):
         patches.append([])
-    count = 0
+
     for info, shape in zip(map.tl_2010_44_tabblock10_info, map.tl_2010_44_tabblock10):
         id = info['GEOID10']
         district = solution[id]
@@ -139,6 +127,7 @@ def assign(blocks, districts, counties):
 
     pop_cost = 3
     distance_cost = 1
+    race_cost = 2
 
     # Create optimization model
     model = Model('netflow')
@@ -151,7 +140,7 @@ def assign(blocks, districts, counties):
     gap = model.addVar(name="gap")
 
 
-    # d[i,j] * population of block i * indic[i,j]
+    # f[i,j] * population of block i * indic[i,j]
     model.setObjective((distance_cost * quicksum(f[i,j] * blocks[i]["Population"] * indic[i,j] for i in range(n) for j in range(m)) +
                        pop_cost * gap), GRB.MINIMIZE)
     #model.setObjective((f[i,j] * blocks[i]["Population"] for i in range(n) for j in range(m)), GRB.MINIMIZE)
