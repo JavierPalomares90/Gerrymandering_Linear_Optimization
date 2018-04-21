@@ -15,6 +15,7 @@ from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 
 
+total_voters = 429697
 
 def readData():
     dataDir = "../census_data/"
@@ -26,16 +27,16 @@ def readData():
     cdFile = "../cd115/National_CD115.txt"
     dirs = utils.getSubdirs(dataDir)
     blocks = []
-    counties = []
     # get all of the blocks into one list
     for d in dirs:
         block,popData,geoData = utils.getBlocks(dataDir + d + populationFile,dataDir + d + geoFile,cdFile)
-        for b in block:
-            blocks.append(b)
+        blocks = blocks + block
+        #for b in block:
+        #    blocks.append(b)
     # read the political data
     fipsDataFile = "../census_data/st44_ri_cou.txt"
     poliDataFile = "../political_data/US_elect_county.csv"
-    #counties = utils.getPoliDataByCounty(poliDataFile,fipsDataFile)
+    counties = utils.getPoliDataByCounty(poliDataFile,fipsDataFile)
     return (blocks, counties)
 
 
@@ -67,16 +68,16 @@ def getCostsArcsCapacity(blocks, districts):
     #                 arc = (i, j)
     #                 arcs.append(arc)
     #                 #capacity[arc] = block["Population"]
-
+        pop = block["Population"]
+        totalPop += pop
+        if pop > maxPop:
+            maxPop = pop
         for j, district in enumerate(districts):
             f[i, j] = getDistance(block, district)
             arc = (i, j)
             arcs.append(arc)
-            pop = block["Population"]
             capacity[arc] = pop
-            totalPop += pop
-            if pop > maxPop:
-                maxPop = pop
+
     return (f, arcs, capacity, totalPop, maxPop)
 
 
@@ -113,25 +114,74 @@ def analyzeSolution(counties, blocks, solution, indic_sol, n, m):
     popResult = []
     raceResult = []
     polResult = []
-    county_distr = {}
+    county_result = []
+    county_total = {}
+    for county in counties:
+        county_total[county["County"]] = 0
     for j in range(m):
         totalPop = 0
-        blocks_assigned = []
+        #blocks_assigned = []
+        white = 0
+        black = 0
+        asian = 0
+        native = 0
+        island = 0
+        other = 0
+        county_distr = {}
+        for county in counties:
+            county_distr[county["County"]] = 0
         for i in range(n):
             if indic_sol[i, j] > 0:
-                blocks_assigned.append(i)
-                totalPop += solution[i, j]
-                sol_map[str(blocks[i]['Id2'])] = j
+                pop = solution[i, j]
+                block = blocks[i]
+                #blocks_assigned.append(i)
+                totalPop += pop
+                sol_map[str(block['Id2'])] = j
+                county_distr[block["County"]] += pop
+                county_total[block["County"]] += pop
+                white += block["Race"]["white"]
+                black += block["Race"]["black"]
+                asian += block["Race"]["asian"]
+                native += block["Race"]["native"]
+                island += block["Race"]["island"]
+                other += block["Race"]["other"]
+        popResult.append(totalPop)
+        raceResult.append({"white": white, "black": black, "asian": asian, "native": native, "island": island, "other": other})
+        county_result.append(county_distr)
         print("For district " + str(j) + ": the population is " + str(totalPop))
         # + " and the assigned blocks are " + str(blocks_assigned) + "\n")
-    return sol_map
+    for i in range(m):
+        county_distr = county_result[i]
+        obama_total = 0
+        romney_total = 0
+        for county in counties:
+            name = county["County"]
+            percent = float(county_distr[name]) / county_total[name]
+            obama_total += county["Obama vote"] * percent
+            romney_total += county["Romney vote"] * percent
+        polResult.append({"Obama": obama_total, "Romney": romney_total})
+    return (sol_map, popResult, raceResult, polResult)
 
 
-def calcMetrics():
-    return []
+def calcMetrics(popResult, raceResult, polResult, m):
+    metrics = []
+    for i in range(m):
+        pop = popResult[i]
+        perWhite = raceResult[i]["white"] / pop * 100.0
+        perBlack = raceResult[i]["black"] / pop * 100.0
+        perAsian = raceResult[i]["asian"] / pop * 100.0
+        perNative = raceResult[i]["native"] / pop * 100.0
+        perIsland = raceResult[i]["island"] / pop * 100.0
+        perOther = raceResult[i]["other"] / pop * 100.0
+        perObama = polResult[i]["Obama"] / total_voters * 100.0
+        perRomney = polResult[i]["Romney"] / total_voters * 100.0
+        metrics.append({"perWhite": perWhite, "perBlack": perBlack, "perAsian": perAsian,
+                        "perNative": perNative, "perIsland": perIsland, "perOther": perOther,
+                        "perObama": perObama, "perRomney": perRomney})
+    return metrics
 
 
-def assign(blocks, districts, counties):
+def assign(blocks, districts, counties, n, m):
     #print(blocks)
     # gurobi network flow example: http://www.gurobi.com/documentation/7.5/examples/netflow_py.html
     #
@@ -143,8 +193,6 @@ def assign(blocks, districts, counties):
     #print(f)
     #print(capacity)
 
-    n = len(blocks)
-    m = len(districts)
     print(totalPop)
     pop_lower = 0.1 * totalPop
     pop_upper = 0.9 * totalPop
@@ -152,7 +200,6 @@ def assign(blocks, districts, counties):
 
     pop_cost = 3
     distance_cost = 1
-    race_cost = 2
 
     # Create optimization model
     model = Model('netflow')
@@ -195,9 +242,10 @@ def assign(blocks, districts, counties):
         indic_sol = model.getAttr('x', indic)
         #print(solution)
         #print(indic_sol)
-        sol_map = analyzeSolution(counties, blocks, solution, indic_sol, n, m)
-        fairness = calcMetrics()
-        drawMap(sol_map, m)
+    else:
+        solution = []
+        indic_sol = []
+    return(solution, indic_sol)
 
 # get the districtCenter by minimizing the population weighted squared
 # distances between electoralDistricts and blocks
@@ -237,7 +285,7 @@ def getDistrictCenters(blocks,u,districtList):
 #This is a population block
 print(blocks[3])
 # This is a vote by county
-#print(counties[0])
+print(counties[0])
 
 
 
@@ -251,8 +299,18 @@ districts = [{'Latitude': districtCenters[1][1], 'Longitude': districtCenters[1]
              {'Latitude': districtCenters[2][1], 'Longitude': districtCenters[2][0]}];
 #districts = [{'Latitude': '+41.1879323', 'Longitude': '-071.5828012'},
 #             {'Latitude': '+41.1686180', 'Longitude': '-071.5928347'}]
-assign(blocks, districts, counties)
 
+n = len(blocks)
+m = len(districts)
+
+(solution, indic_sol) = assign(blocks, districts, counties, n, m)
+(sol_map, popResult, raceResult, polResult) = analyzeSolution(counties, blocks, solution, indic_sol, n, m)
+print(popResult)
+print(raceResult)
+print(polResult)
+metrics = calcMetrics(popResult, raceResult, polResult, m)
+print(metrics)
+drawMap(sol_map, m)
 
 
 # In[2]:
