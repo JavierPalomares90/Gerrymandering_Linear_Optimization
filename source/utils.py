@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[4]:
+# In[1]:
 
 
 import re
@@ -416,5 +416,31 @@ def getNeighbors(shapefileDir):
         tmp['neighbors'] = neighborList
         neighborsMap.append(tmp)
     return neighborsMap
+
+def getNeighborPairs(shapefileDir):
+    neighborPairs = [];
+    tmp = set();
+    sf = shapefile.Reader(shapefileDir);
+    records = sf.records();
+    # choose the "queen" neighbors. This means shapes are neighbors as long as they share a vertex.
+    # alternative is the "rook", where shapes must share an edge.
+    w = ps.queen_from_shapefile(shapefileDir+".shp");
+    N = w.n;
+    for i in range(N):
+        # blockId is the field in index 4
+        blockId = int(records[i][4]);
+        # this var is a map containing the neighbors of block i, where the key is the neighbor, and value is the weight
+        neighbors = w[i];
+        for n in neighbors.keys():
+            neighborId = int(records[n][4]);
+            # pairs are unordered, we don't want to double add pairs
+            pair = (blockId,neighborId);
+            revPair = (neighborId, blockId);
+            if revPair in tmp:
+                continue;
+            tmp.add(pair);
+            neighborPairs.append(pair);
+    return neighborPairs
         
+            
 

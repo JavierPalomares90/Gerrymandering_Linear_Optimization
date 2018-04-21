@@ -185,7 +185,7 @@ def assign(blocks, districts, counties, n, m):
     #print(blocks)
     # gurobi network flow example: http://www.gurobi.com/documentation/7.5/examples/netflow_py.html
     #
-    # cost function f(i,j) is the euclidian distance from block i to district j times population of block i
+    # cost function f(i,j) is the euclidian distance from block i to district j 
     # we can create a cost matrix f with rows being blocks and columns being districts
     # we can write the edges u as constrained to 0 or 1 indicating whether block i is assigned to district j
     #
@@ -313,10 +313,9 @@ print(metrics)
 drawMap(sol_map, m)
 
 
-# In[2]:
+# In[3]:
 
 
 shapesDir = "../census_block_shape_files/tl_2010_44_tabblock10";
-neigbors = utils.getNeighbors(shapesDir)
-print(neigbors[0])
+neighborPairsList = utils.getNeighborPairs(shapesDir)
 
