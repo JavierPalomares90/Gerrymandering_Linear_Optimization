@@ -399,8 +399,11 @@ def getNumBlockInDistrict(blocks):
         u.append(u_i_j)
     return u
 
-def getNeighbors(shapefileDir):
+def getNeighbors(shapefileDir,indexMapping):
+    # map by blockId
     neighborsMap = {}
+    # map by Index
+    neighborsMapByIndex = {}
     sf = shapefile.Reader(shapefileDir);
     records = sf.records();
     # choose the "queen" neighbors. This means shapes are neighbors as long as they share a vertex.
@@ -410,16 +413,21 @@ def getNeighbors(shapefileDir):
     for i in range(N):
         # blockId is the field in index 4
         blockId = int(records[i][4]);
+        index = indexMapping[blockId];
         # this var is a map containing the neighbors of block i, where the key is the neighbor, and value is the weight
         neighbors = w[i];
         # map everything by blockIds instead of indices in this list
         # since this ordering is different from the blocksList
-        neighborList = []
+        neighborList = [];
+        neighborIndexList = [];
         for n in neighbors.keys():
             neighborId = int(records[n][4]);
+            neighborIndex = indexMapping[neighborId];
             neighborList.append(neighborId);
+            neighborIndexList.append(neighborIndex);
         neighborsMap[blockId] = neighborList;
-    return neighborsMap
+        neighborsMapByIndex[index] = neighborIndexList;
+    return neighborsMap,neighborsMapByIndex
 
 def getNeighborPairs(shapefileDir):
     neighborPairs = [];
@@ -446,14 +454,17 @@ def getNeighborPairs(shapefileDir):
             neighborPairs.append(pair);
     return neighborPairs
 
- # the neighborsMap is by blockId,
-# return pairs by their index according the order in the blocks list
-def getPairsFromMap(blocks,neighborsMap):
-    pairs = [];
+def getIndexMapping(blocks):
     indexMapping = {};
     for i in range(len(blocks)):
         blockId = blocks[i]['Id2']
         indexMapping[blockId] = i;
+    return indexMapping
+ # the neighborsMap is by blockId,
+# return pairs by their index according the order in the blocks list
+def getPairsFromMap(blocks,neighborsMap):
+    pairs = [];
+    indexMapping = getIndexMapping(blocks);
     for block in neighborsMap:
         index = indexMapping[block];
         neighborList = neighborsMap[block];
