@@ -313,7 +313,7 @@ def getContinuousDistricts(blocks,districts,neighbors):
     # x_i_k is a decision variable that equals 1 if the block i is assigned to district k
     # This should be the same var as "indic"
     x = model.addVars(numBlocks,numDistricts, name="assignment_indicator", vtype=GRB.BINARY);
-    # y_i+j is a decision variable that indicates the amount of flow from block i to block j
+    # y_i_j is a decision variable that indicates the amount of flow from block i to block j
     # y must be nonnegative
     # will add y variables dynamically only when we find a pair
     y = {};
