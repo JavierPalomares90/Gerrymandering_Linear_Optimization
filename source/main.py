@@ -15,7 +15,7 @@ from matplotlib.patches import Polygon
 from matplotlib.collections import PatchCollection
 
 
-total_voters = 429697
+totalVoters = 429697
 
 def readData():
     dataDir = "../census_data/"
@@ -159,7 +159,7 @@ def analyzeSolution(counties, blocks, solution, indic_sol, n, m):
             percent = float(county_distr[name]) / county_total[name]
             obama_total += county["Obama vote"] * percent
             romney_total += county["Romney vote"] * percent
-        polResult.append({"Obama": obama_total, "Romney": romney_total})
+        polResult.append({"Obama": obama_total, "Romney": romney_total, "total": obama_total+romney_total})
     return (sol_map, popResult, raceResult, polResult)
 
 
@@ -173,12 +173,21 @@ def calcMetrics(popResult, raceResult, polResult, m):
         perNative = raceResult[i]["native"] / pop * 100.0
         perIsland = raceResult[i]["island"] / pop * 100.0
         perOther = raceResult[i]["other"] / pop * 100.0
-        perObama = polResult[i]["Obama"] / total_voters * 100.0
-        perRomney = polResult[i]["Romney"] / total_voters * 100.0
+        perObama = polResult[i]["Obama"] / polResult[i]["total"] * 100.0
+        perRomney = polResult[i]["Romney"] / polResult[i]["total"] * 100.0
         metrics.append({"perWhite": perWhite, "perBlack": perBlack, "perAsian": perAsian,
                         "perNative": perNative, "perIsland": perIsland, "perOther": perOther,
                         "perObama": perObama, "perRomney": perRomney})
-    return metrics
+    totalMetrics = {"white": quicksum(raceResult[i]["white"] for i in range(m)) / totalPop * 100.0,
+                    "black": quicksum(raceResult[i]["black"] for i in range(m)) / totalPop * 100.0,
+                    "asian": quicksum(raceResult[i]["asian"] for i in range(m)) / totalPop * 100.0,
+                    "native": quicksum(raceResult[i]["native"] for i in range(m)) / totalPop * 100.0,
+                    "island": quicksum(raceResult[i]["island"] for i in range(m)) / totalPop * 100.0,
+                    "other": quicksum(raceResult[i]["other"] for i in range(m)) / totalPop * 100.0,
+                    "Obama": quicksum(polResult[i]["Obama"] for i in range(m)) / totalVoters * 100.0,
+                    "Romney": quicksum(polResult[i]["Romney"] for i in range(m)) / totalVoters * 100.0,
+                    }
+    return (metrics, totalMetrics)
 
 
 def assign(blocks, districts, counties, n, m):
@@ -239,44 +248,45 @@ def assign(blocks, districts, counties, n, m):
     # Print solution
     if model.status == GRB.Status.OPTIMAL:
         solution = model.getAttr('x', flow)
-        indic_sol = model.getAttr('x', indic)
+        indicSol = model.getAttr('x', indic)
         #print(solution)
-        #print(indic_sol)
+        #print(indicSol)
     else:
         solution = []
-        indic_sol = []
-    return(solution, indic_sol)
+        indicSol = []
+    return(totalPop, solution, indicSol)
+
 
 # get the districtCenter by minimizing the population weighted squared
 # distances between electoralDistricts and blocks
 def getDistrictCenters(blocks,u,districtList):
-    I = len(blocks);
-    J = len(districtList);
+    I = len(blocks)
+    J = len(districtList)
     
     # collection of the x and y coordinates of the district centers
-    districtCenterCoords={};
+    districtCenterCoords={}
     for j in range(J):
-        districtId = districtList[j];
+        districtId = districtList[j]
         # finding the center for each district is an optimization problem
         model = Model('District_%d_Centers' % j)
         # by default gurobi wants optimal solutions to be non negative
-        x = model.addVar(lb = -360,name="x_%d" % j);
-        y = model.addVar(name="y_%d" % j);
-        objective = QuadExpr();
+        x = model.addVar(lb = -360,name="x_%d" % j)
+        y = model.addVar(name="y_%d" % j)
+        objective = QuadExpr()
         for i in range(I):
-            block = blocks[i];
-            blockId = block['Id2'];
-            x_i = float(block['Longitude']);
-            y_i = float(block['Latitude']);
-            u_i = u[i];
+            block = blocks[i]
+            blockId = block['Id2']
+            x_i = float(block['Longitude'])
+            y_i = float(block['Latitude'])
+            u_i = u[i]
             if(u_i['Id2'] != blockId):
                 raise ValueError('There is a mismatch in the blockIds at i=%d' % i)
-            u_i_j = u_i[districtId];
-            objective.add(u_i_j * ( (x-x_i)*(x-x_i) + (y-y_i)*(y-y_i)));
+            u_i_j = u_i[districtId]
+            objective.add(u_i_j * ( (x-x_i)*(x-x_i) + (y-y_i)*(y-y_i)))
         model.setObjective(objective)
-        model.setParam( 'OutputFlag', False );
-        model.optimize();
-        districtCenterCoords[districtId] = (x.X,y.X);
+        model.setParam( 'OutputFlag', False )
+        model.optimize()
+        districtCenterCoords[districtId] = (x.X,y.X)
     return districtCenterCoords
         
 
@@ -303,13 +313,14 @@ districts = [{'Latitude': districtCenters[1][1], 'Longitude': districtCenters[1]
 n = len(blocks)
 m = len(districts)
 
-(solution, indic_sol) = assign(blocks, districts, counties, n, m)
-(sol_map, popResult, raceResult, polResult) = analyzeSolution(counties, blocks, solution, indic_sol, n, m)
+(totalPop, solution, indicSol) = assign(blocks, districts, counties, n, m)
+(sol_map, popResult, raceResult, polResult) = analyzeSolution(counties, blocks, solution, indicSol, n, m)
 print(popResult)
 print(raceResult)
 print(polResult)
-metrics = calcMetrics(popResult, raceResult, polResult, m)
+(metrics, totalMetrics) = calcMetrics(popResult, raceResult, polResult, m)
 print(metrics)
+print(totalMetrics)
 drawMap(sol_map, m)
 
 
