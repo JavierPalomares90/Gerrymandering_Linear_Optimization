@@ -1,6 +1,12 @@
 
 # coding: utf-8
 
+# In[2]:
+
+
+
+# coding: utf-8
+
 # In[1]:
 
 
@@ -393,29 +399,35 @@ def getNumBlockInDistrict(blocks):
         u.append(u_i_j)
     return u
 
-def getNeighbors(shapefileDir):
-    neighborsMap = []
-    sf = shapefile.Reader(shapefileDir)
-    records = sf.records()
+def getNeighbors(shapefileDir,indexMapping):
+    # map by blockId
+    neighborsMap = {}
+    # map by Index
+    neighborsMapByIndex = {}
+    sf = shapefile.Reader(shapefileDir);
+    records = sf.records();
     # choose the "queen" neighbors. This means shapes are neighbors as long as they share a vertex.
     # alternative is the "rook", where shapes must share an edge.
-    w = ps.queen_from_shapefile(shapefileDir+".shp")
-    N = w.n
+    w = ps.queen_from_shapefile(shapefileDir+".shp");
+    N = w.n;
     for i in range(N):
         # blockId is the field in index 4
-        blockId = int(records[i][4])
+        blockId = int(records[i][4]);
+        index = indexMapping[blockId];
         # this var is a map containing the neighbors of block i, where the key is the neighbor, and value is the weight
-        neighbors = w[i]
-        # rearrange the map so we get everything by blockId instead of the index in the list
-        tmp = {}
-        tmp['Id2'] = blockId
-        neighborList = []
+        neighbors = w[i];
+        # map everything by blockIds instead of indices in this list
+        # since this ordering is different from the blocksList
+        neighborList = [];
+        neighborIndexList = [];
         for n in neighbors.keys():
-            neighborId = int(records[n][4])
-            neighborList.append(neighborId)
-        tmp['neighbors'] = neighborList
-        neighborsMap.append(tmp)
-    return neighborsMap
+            neighborId = int(records[n][4]);
+            neighborIndex = indexMapping[neighborId];
+            neighborList.append(neighborId);
+            neighborIndexList.append(neighborIndex);
+        neighborsMap[blockId] = neighborList;
+        neighborsMapByIndex[index] = neighborIndexList;
+    return neighborsMap,neighborsMapByIndex
 
 def getNeighborPairs(shapefileDir):
     neighborPairs = [];
@@ -441,6 +453,38 @@ def getNeighborPairs(shapefileDir):
             tmp.add(pair);
             neighborPairs.append(pair);
     return neighborPairs
-        
+
+def getIndexMapping(blocks):
+    indexMapping = {};
+    for i in range(len(blocks)):
+        blockId = blocks[i]['Id2']
+        indexMapping[blockId] = i;
+    return indexMapping
+ # the neighborsMap is by blockId,
+# return pairs by their index according the order in the blocks list
+def getPairsFromMap(blocks,neighborsMap):
+    pairs = [];
+    indexMapping = getIndexMapping(blocks);
+    for block in neighborsMap:
+        index = indexMapping[block];
+        neighborList = neighborsMap[block];
+        for neighbor in neighborList:
+            neighborIndex = indexMapping[neighbor];
+            pairs.append((index,neighborIndex))
+    return pairs
+
+# Find the nodes that "flow" into node i
+# This is finding all the pairs with i as the second value
+def getFlowInto(i,pairs):
+    matches = [x for x in pairs if pairs[1] == i]
+    return matches
+
+
+# Find the nodes that "flow" from node i
+# This is finding all the pairs with i as the first value   
+def getFlowOutof(i,pairs):
+    matches = [x for x in pairs if pairs[0] == i]
+    return matches
             
+
 

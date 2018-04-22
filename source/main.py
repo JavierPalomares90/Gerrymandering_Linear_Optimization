@@ -4,6 +4,12 @@
 # In[1]:
 
 
+
+# coding: utf-8
+
+# In[1]:
+
+
 from gurobipy import *
 import utils
 from math import radians, sin, cos, acos
@@ -288,7 +294,55 @@ def getDistrictCenters(blocks,u,districtList):
         model.optimize()
         districtCenterCoords[districtId] = (x.X,y.X)
     return districtCenterCoords
+
+# dummy method to formulate constraints for continuous districts.
+# need to add these constrainst to assign() method
+# dummy method to formulate constraints for continuous districts.
+# need to add these constrainst to assign() method
+def getContinuousDistricts(blocks,districts,neighbors):
+    numBlocks = len(blocks);
+    numDistricts = len(districts);
+    m = numBlocks;
+
+    model = Model('Continuous_Districts');
+    #w_i_k is a decision variable that equals 1 if the block i is the hub of district k
+    w = model.addVars(numBlocks, numDistricts, name="hub_indicators",vtype = GRB.BINARY);
+    # only one hub per district. This is constraint (2)
+    for k in range(numDistricts):
+        model.addConstr(quicksum(w[i,k] for i in range(numBlocks)) == 1);
+    # x_i_k is a decision variable that equals 1 if the block i is assigned to district k
+    # This should be the same var as "indic"
+    x = model.addVars(numBlocks,numDistricts, name="assignment_indicator", vtype=GRB.BINARY);
+    # y_i+j is a decision variable that indicates the amount of flow from block i to block j
+    # y must be nonnegative
+    # will add y variables dynamically only when we find a pair
+    y = {};
+
+    # constraint (3) (specifically  (21) from the examples)
+    for k in range(numDistricts):
+        for i in range(numBlocks):
+            # neighbors is the list of blocks adjacent to i.
+            flowInto = LinExpr();
+            neighborsOfI = neighbors[i];
+            for j in neighborsOfI:
+                # add the flow variable dynamically for the found pairs
+                # variable must be non negative
+                y[(j,i,k)] = model.addVar(name="flow_%d_%d_%d" % (j,i,k),lb=0);
+                flowInto.add(y[(j,i,k)])
+            model.addConstr(flowInto <= (m - 1) * x[i,k]);
+    # constraint (1) ((20) from the examples)
+    for k in range(numDistricts):
+        for i in range(numBlocks):
+            neighborsOfI = neighbors[i];
+            netFlow = LinExpr();
+            for j in neighborsOfI:
+                netFlow.add(y[(i,j,k)] - y[(j,i,k)])
+            model.addConstr(netFlow >= (x[i,k] - m * w[i,k]));
+    model.update();
+    model.setObjective(0);
+    model.optimize(); 
         
+
 
 # In[5]:
 (blocks, counties) = readData()
@@ -307,8 +361,6 @@ districtCenters = getDistrictCenters(blocks,u,districtList)
 print(districtCenters)
 districts = [{'Latitude': districtCenters[1][1], 'Longitude': districtCenters[1][0]},
              {'Latitude': districtCenters[2][1], 'Longitude': districtCenters[2][0]}];
-#districts = [{'Latitude': '+41.1879323', 'Longitude': '-071.5828012'},
-#             {'Latitude': '+41.1686180', 'Longitude': '-071.5928347'}]
 
 n = len(blocks)
 m = len(districts)
@@ -326,7 +378,9 @@ drawMap(sol_map, m)
 
 # In[3]:
 
-
 shapesDir = "../census_block_shape_files/tl_2010_44_tabblock10";
-neighborPairsList = utils.getNeighborPairs(shapesDir)
+indexMapping = utils.getIndexMapping(blocks);
+neighbors,neighborsByIndex = utils.getNeighbors(shapesDir,indexMapping);
+getContinuousDistricts(blocks,districts,neighborsByIndex)
+        
 
