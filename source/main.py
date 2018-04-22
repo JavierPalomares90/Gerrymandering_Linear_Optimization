@@ -1,6 +1,12 @@
 
 # coding: utf-8
 
+# In[ ]:
+
+
+
+# coding: utf-8
+
 # In[1]:
 
 
@@ -196,7 +202,7 @@ def calcMetrics(popResult, raceResult, polResult, m):
     return (metrics, totalMetrics)
 
 
-def assign(blocks, districts, counties, n, m):
+def assign(blocks, districts, counties, neighbors, n, m):
     #print(blocks)
     # gurobi network flow example: http://www.gurobi.com/documentation/7.5/examples/netflow_py.html
     #
@@ -220,8 +226,10 @@ def assign(blocks, districts, counties, n, m):
     model = Model('netflow')
 
     # Create variables
+    # does flow equal y?
     flow = model.addVars(n, m, name="flow")
-    indic = model.addVars(n, m, vtype=GRB.INTEGER, lb=0, ub=1, name="indic")
+    # same as x?
+    indic = model.addVars(n, m, vtype=GRB.BINARY, name="indic")
     smallest = model.addVar(name="min")
     largest = model.addVar(name="max")
     gap = model.addVar(name="gap")
@@ -230,10 +238,6 @@ def assign(blocks, districts, counties, n, m):
     # f[i,j] * population of block i * indic[i,j]
     model.setObjective((distance_cost * quicksum(f[i,j] * blocks[i]["Population"] * indic[i,j] for i in range(n) for j in range(m)) +
                        pop_cost * gap), GRB.MINIMIZE)
-    #model.setObjective((f[i,j] * blocks[i]["Population"] for i in range(n) for j in range(m)), GRB.MINIMIZE)
-
-    # Arc capacity constraints
-    #model.addConstrs((flow.sum('*', i, j) <= capacity[i, j] for i, j in arcs), "cap")
 
     # to ensure all blocks are allocated and no splitting allowed
     model.addConstrs( (flow.sum(i,'*') == blocks[i]["Population"] for i in range(n)), "node")
@@ -244,10 +248,38 @@ def assign(blocks, districts, counties, n, m):
     model.addConstrs( largest >= flow.sum('*', j) for j in range(m))
     model.addConstr(gap == largest - smallest)
 
-    # to keep population "equal"
-    #model.addConstrs( (flow.sum('*', j) >= pop_lower for j in range(m)))
-    #model.addConstrs( (flow.sum('*', j) <= pop_upper for j in range(m)))
 
+    ## add continuity constraints
+    w = model.addVars(n,m, name="hub_indicators",vtype = GRB.BINARY);
+    # only one hub per district. This is constraint (2)
+    for k in range(m):
+        model.addConstr(quicksum(w[i,k] for i in range(n)) == 1);
+        
+    # y_i_j is a decision variable that indicates the amount of flow from block i to block j
+    # y must be nonnegative
+    # will add y variables dynamically only when we find a pair
+    y = {};
+
+    # constraint (3) (specifically  (21) from the examples)
+    for k in range(m):
+        for i in range(n):
+            # neighbors is the list of blocks adjacent to i.
+            flowInto = LinExpr();
+            neighborsOfI = neighbors[i];
+            for j in neighborsOfI:
+                # add the flow variable dynamically for the found pairs
+                # variable must be non negative
+                y[(j,i,k)] = model.addVar(name="flow_%d_%d_%d" % (j,i,k),lb=0);
+                flowInto.add(y[(j,i,k)])
+            model.addConstr(flowInto <= (n - 1) * indic[i,k]);
+    # constraint (1) ((20) from the examples)
+    for k in range(m):
+        for i in range(n):
+            neighborsOfI = neighbors[i];
+            netFlow = LinExpr();
+            for j in neighborsOfI:
+                netFlow.add(y[(i,j,k)] - y[(j,i,k)])
+            model.addConstr(netFlow >= (indic[i,k] - n * w[i,k]));
 
     model.optimize()
 
@@ -365,7 +397,11 @@ districts = [{'Latitude': districtCenters[1][1], 'Longitude': districtCenters[1]
 n = len(blocks)
 m = len(districts)
 
-(totalPop, solution, indicSol) = assign(blocks, districts, counties, n, m)
+shapesDir = "../census_block_shape_files/tl_2010_44_tabblock10";
+indexMapping = utils.getIndexMapping(blocks);
+neighbors,neighborsByIndex = utils.getNeighbors(shapesDir,indexMapping);
+
+(totalPop, solution, indicSol) = assign(blocks, districts, counties,neighborsByIndex, n, m)
 (sol_map, popResult, raceResult, polResult) = analyzeSolution(counties, blocks, solution, indicSol, n, m)
 print(popResult)
 print(raceResult)
@@ -375,12 +411,4 @@ print(metrics)
 print(totalMetrics)
 drawMap(sol_map, m)
 
-
-# In[3]:
-
-shapesDir = "../census_block_shape_files/tl_2010_44_tabblock10";
-indexMapping = utils.getIndexMapping(blocks);
-neighbors,neighborsByIndex = utils.getNeighbors(shapesDir,indexMapping);
-getContinuousDistricts(blocks,districts,neighborsByIndex)
-        
 
