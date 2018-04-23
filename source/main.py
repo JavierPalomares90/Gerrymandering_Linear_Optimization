@@ -30,21 +30,25 @@ from matplotlib.collections import PatchCollection
 totalVoters = 429697
 
 def readData():
-    dataDir = "../census_data/"
+#    dataDir = "../census_data/"
+    dataDir = "../census_data_tract"
     # file with population data
     populationFile = "/DEC_10_PL_P3_with_ann.csv"
     # file with geographical data
     geoFile = "/DEC_10_PL_G001_with_ann.csv"
     # file with the congressional districts per block
-    cdFile = "../cd115/National_CD115.txt"
-    dirs = utils.getSubdirs(dataDir)
-    blocks = []
-    # get all of the blocks into one list
-    for d in dirs:
-        block,popData,geoData = utils.getBlocks(dataDir + d + populationFile,dataDir + d + geoFile,cdFile)
-        blocks = blocks + block
-        #for b in block:
-        #    blocks.append(b)
+    cdFile = "../cd115/44_RI_CD115.txt"
+
+    blocks, popData, geoData = utils.getBlocks(dataDir + populationFile, dataDir + geoFile, cdFile)
+
+    # dirs = utils.getSubdirs(dataDir)
+    # blocks = []
+    # # get all of the blocks into one list
+    # for d in dirs:
+    #     block,popData,geoData = utils.getBlocks(dataDir + d + populationFile,dataDir + d + geoFile,cdFile)
+    #     blocks = blocks + block
+    #     #for b in block:
+    #     #    blocks.append(b)
     # read the political data
     fipsDataFile = "../census_data/st44_ri_cou.txt"
     poliDataFile = "../political_data/US_elect_county.csv"
@@ -62,10 +66,6 @@ def getDistance(block, district):
     return dist
 
 
-def connected(start, end):
-    return True
-
-
 def getCostsArcsCapacity(blocks, districts):
     f = np.empty((len(blocks), len(districts)))
     arcs = tuplelist()
@@ -73,13 +73,6 @@ def getCostsArcsCapacity(blocks, districts):
     totalPop = 0
     maxPop = 0
     for i,block in enumerate(blocks):
-    #     totalPop += block_start["Population"]
-    #     for j,block_end in enumerate(blocks):
-    #         if block_start is not block_end:
-    #             if connected(block_start, block_end):
-    #                 arc = (i, j)
-    #                 arcs.append(arc)
-    #                 #capacity[arc] = block["Population"]
         pop = block["Population"]
         totalPop += pop
         if pop > maxPop:
@@ -104,13 +97,14 @@ def drawMap(solution, m):
     map.drawcountries()
     map.drawstates()
 
-    map.readshapefile('../census_block_shape_files/tl_2010_44_tabblock10', 'tl_2010_44_tabblock10', drawbounds=False)
+#    map.readshapefile('../census_block_shape_files/tl_2010_44_tabblock10', 'tl_2010', drawbounds=False)
+    map.readshapefile('../census_tract_shape_files/tl_2010_44_tract10', 'tl_2010', drawbounds=False)
 
     patches = []
     for i in range(m):
         patches.append([])
 
-    for info, shape in zip(map.tl_2010_44_tabblock10_info, map.tl_2010_44_tabblock10):
+    for info, shape in zip(map.tl_2010_info, map.tl_2010):
         id = info['GEOID10']
         district = solution[id]
         patches[district].append(Polygon(np.array(shape), True))
@@ -216,10 +210,10 @@ def assign(blocks, districts, counties, neighbors, n, m):
 
     print(totalPop)
     pop_lower = 0.1 * totalPop
-    pop_upper = 0.9 * totalPop
+    pop_upper = 0.8 * totalPop
     M = maxPop * 10 # should be as large as the largest block population. might calculate dynamically
 
-    pop_cost = 3
+    pop_cost = 5
     distance_cost = 1
 
     # Create optimization model
@@ -248,6 +242,8 @@ def assign(blocks, districts, counties, neighbors, n, m):
     model.addConstrs( largest >= flow.sum('*', j) for j in range(m))
     model.addConstr(gap == largest - smallest)
 
+    #model.addConstr( smallest >= pop_lower)
+    #model.addConstr( largest <= pop_upper)
 
     ## add continuity constraints
     w = model.addVars(n,m, name="hub_indicators",vtype = GRB.BINARY);
@@ -273,13 +269,13 @@ def assign(blocks, districts, counties, neighbors, n, m):
                 flowInto.add(y[(j,i,k)])
             model.addConstr(flowInto <= (n - 1) * indic[i,k]);
     # constraint (1) ((20) from the examples)
-    for k in range(m):
-        for i in range(n):
-            neighborsOfI = neighbors[i];
-            netFlow = LinExpr();
-            for j in neighborsOfI:
-                netFlow.add(y[(i,j,k)] - y[(j,i,k)])
-            model.addConstr(netFlow >= (indic[i,k] - n * w[i,k]));
+    # for k in range(m):
+    #     for i in range(n):
+    #         neighborsOfI = neighbors[i];
+    #         netFlow = LinExpr();
+    #         for j in neighborsOfI:
+    #             netFlow.add(y[(i,j,k)] - y[(j,i,k)])
+    #         model.addConstr(netFlow >= (indic[i,k] - n * w[i,k]));
 
     model.optimize()
 
@@ -383,8 +379,6 @@ print(blocks[3])
 # This is a vote by county
 print(counties[0])
 
-
-
 # In[2]:
 u = utils.getNumBlockInDistrict(blocks)
 #TODO: write method to figure out all districts
@@ -397,7 +391,8 @@ districts = [{'Latitude': districtCenters[1][1], 'Longitude': districtCenters[1]
 n = len(blocks)
 m = len(districts)
 
-shapesDir = "../census_block_shape_files/tl_2010_44_tabblock10";
+#shapesDir = "../census_block_shape_files/tl_2010_44_tabblock10";
+shapesDir = "../census_tract_shape_files/tl_2010_44_tract10"
 indexMapping = utils.getIndexMapping(blocks);
 neighbors,neighborsByIndex = utils.getNeighbors(shapesDir,indexMapping);
 

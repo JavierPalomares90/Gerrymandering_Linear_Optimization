@@ -18,6 +18,8 @@ import pysal as ps
 from math import asin, sqrt, cos, pi
 
 
+RI_state_code = "44"
+
 race_keys = {
     "Population of one race: - White alone": {"white": 100, "black": 0, "native": 0, "asian": 0, "island": 0, "other": 0},
     "Population of one race: - Black or African American alone": {"white": 0, "black": 100, "native": 0, "asian": 0, "island": 0, "other": 0},
@@ -88,14 +90,18 @@ race_keys = {
 
 def getGeography(s):
     strings = s.split(',')
-    if(len(strings) < 5):
+    if(len(strings) < 3):
         return
     #get the block number and block group using regEx
     blockId = int(re.search(r'\d+', strings[0]).group())
-    blockGroupId = int(re.search(r'\d+', strings[1]).group())
-    censusTract = int(re.search(r'\d+', strings[2]).group())
-    county = strings[3].lstrip()
-    state = strings[4].lstrip()
+    #blockGroupId = int(re.search(r'\d+', strings[1]).group())
+    #censusTract = int(re.search(r'\d+', strings[2]).group())
+    blockGroupId = blockId
+    censusTract = blockId
+    county = strings[1].lstrip()
+    state = strings[2].lstrip()
+#    county = strings[3].lstrip()
+#    state = strings[4].lstrip()
     return blockId,blockGroupId,censusTract,county,state
 
 
@@ -104,12 +110,12 @@ def getTotalPopulation(data):
     for key in data:
         # sum up all of the population for a block
         if (key.find("Population") != -1):
-            pop += int(data[key]);
+            pop += int(data[key])
     return pop
 
 
 def getFipsCountyCode(stateCode,countyCode):
-    code = "%d%03d" %(stateCode,countyCode);
+    code = "%d%03d" %(stateCode,countyCode)
     return int(code)
 
 
@@ -164,8 +170,12 @@ def getBlocks(popFilename,geoFilename,cdFilename):
     with open(cdFilename) as cdFile:
         # skip the header row
         next(cdFile)
-        for line in cdFile:
+        lines = cdFile.readlines()
+       # expirations = list(filter(lambda x: re.search("View\sBy\sExpiration", x.get_text()), soup.find_all("td")))
+        #lines = list(filter(lambda x: re.search(RI_state_code, x), lines))
+        for line in lines:
             blockId, districtId = line.partition(",")[::2]
+            blockId = blockId[:-4]
             cdMapping[int(blockId)] = districtId.rstrip()
     numCensusBlocks = len(data)
     # populationBlocks is a list of maps, one map per census block
@@ -238,8 +248,10 @@ def blockInDistrict(block,district):
     idKey = 'Id2'
     blockId = block[idKey]
     return next((item for item in district if item[idKey] == blockId), False)
+
+
 # measure of compactness of a district
-# obtained by computing the percentange of sites in the circle centered at s 
+# obtained by computing the percentage of sites in the circle centered at s
 # of radius r that are not in the district
 def circularCompactness(blocks,district,radius,centerLong,centerLat):
     numBlocks = len(blocks)
@@ -412,7 +424,8 @@ def getNeighbors(shapefileDir,indexMapping):
     N = w.n;
     for i in range(N):
         # blockId is the field in index 4
-        blockId = int(records[i][4]);
+#        blockId = int(records[i][4]);
+        blockId = int(records[i][3]);
         index = indexMapping[blockId];
         # this var is a map containing the neighbors of block i, where the key is the neighbor, and value is the weight
         neighbors = w[i];
@@ -421,7 +434,8 @@ def getNeighbors(shapefileDir,indexMapping):
         neighborList = [];
         neighborIndexList = [];
         for n in neighbors.keys():
-            neighborId = int(records[n][4]);
+#            neighborId = int(records[n][4]);
+            neighborId = int(records[n][3]);
             neighborIndex = indexMapping[neighborId];
             neighborList.append(neighborId);
             neighborIndexList.append(neighborIndex);
