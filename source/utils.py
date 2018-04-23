@@ -413,7 +413,11 @@ def getNeighbors(shapefileDir,indexMapping):
     for i in range(N):
         # blockId is the field in index 4
         blockId = int(records[i][4]);
-        index = indexMapping[blockId];
+        try:
+            index = indexMapping[blockId];
+        except:
+            continue;
+            
         # this var is a map containing the neighbors of block i, where the key is the neighbor, and value is the weight
         neighbors = w[i];
         # map everything by blockIds instead of indices in this list
@@ -422,11 +426,15 @@ def getNeighbors(shapefileDir,indexMapping):
         neighborIndexList = [];
         for n in neighbors.keys():
             neighborId = int(records[n][4]);
-            neighborIndex = indexMapping[neighborId];
-            neighborList.append(neighborId);
-            neighborIndexList.append(neighborIndex);
+            try:
+                neighborIndex = indexMapping[neighborId];
+                neighborIndexList.append(neighborIndex);
+            except:
+                neighborList.append(neighborId);
+                continue
         neighborsMap[blockId] = neighborList;
         neighborsMapByIndex[index] = neighborIndexList;
+
     return neighborsMap,neighborsMapByIndex
 
 def getNeighborPairs(shapefileDir):
@@ -460,16 +468,22 @@ def getIndexMapping(blocks):
         blockId = blocks[i]['Id2']
         indexMapping[blockId] = i;
     return indexMapping
- # the neighborsMap is by blockId,
+ # the neighborsMap isss by blockId,
 # return pairs by their index according the order in the blocks list
 def getPairsFromMap(blocks,neighborsMap):
     pairs = [];
     indexMapping = getIndexMapping(blocks);
     for block in neighborsMap:
-        index = indexMapping[block];
+        try:
+            index = indexMapping[block];
+        except:
+            i;
         neighborList = neighborsMap[block];
         for neighbor in neighborList:
-            neighborIndex = indexMapping[neighbor];
+            try:
+                neighborIndex = indexMapping[neighbor];
+            except:
+                i;
             pairs.append((index,neighborIndex))
     return pairs
 

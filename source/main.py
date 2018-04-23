@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[ ]:
+# In[1]:
 
 
 
@@ -217,6 +217,8 @@ def assign(blocks, districts, counties, neighbors, n, m):
     print(totalPop)
     pop_lower = 0.1 * totalPop
     pop_upper = 0.9 * totalPop
+    p = totalPop / m;
+    alpha = .05;
     M = maxPop * 10 # should be as large as the largest block population. might calculate dynamically
 
     pop_cost = 3
@@ -227,7 +229,7 @@ def assign(blocks, districts, counties, neighbors, n, m):
 
     # Create variables
     # does flow equal y?
-    flow = model.addVars(n, m, name="flow")
+    #flow = model.addVars(n, m, name="flow")
     # same as x?
     indic = model.addVars(n, m, vtype=GRB.BINARY, name="indic")
     smallest = model.addVar(name="min")
@@ -240,15 +242,25 @@ def assign(blocks, districts, counties, neighbors, n, m):
                        pop_cost * gap), GRB.MINIMIZE)
 
     # to ensure all blocks are allocated and no splitting allowed
-    model.addConstrs( (flow.sum(i,'*') == blocks[i]["Population"] for i in range(n)), "node")
-    model.addConstrs((flow[i, j] <= M * indic[i, j] for i in range(n) for j in range(m)))
+    #model.addConstrs( (flow.sum(i,'*') == blocks[i]["Population"] for i in range(n)), "node")
+    #model.addConstrs((flow[i, j] <= M * indic[i, j] for i in range(n) for j in range(m)))
     model.addConstrs((indic.sum(i, '*') == 1 for i in range(n)))
 
-    model.addConstrs( smallest <= flow.sum('*', j) for j in range(m))
-    model.addConstrs( largest >= flow.sum('*', j) for j in range(m))
+    #model.addConstrs( smallest <= flow.sum('*', j) for j in range(m))
+    #model.addConstrs( largest >= flow.sum('*', j) for j in range(m))
+    
+
+    for k in range(m):
+        # constraint (10)
+        model.addConstr( quicksum(blocks[i]['Population'] * indic[i,k] for i in range(n)) >= (1-alpha)*p );
+        # constraint (11)
+        model.addConstr( quicksum(blocks[i]['Population'] * indic[i,k] for i in range(n)) <= (1+alpha)*p );
+        # for finding the gap
+        model.addConstr( quicksum(blocks[i]['Population'] * indic[i,k] for i in range(n)) >= smallest);
+        model.addConstr( quicksum(blocks[i]['Population'] * indic[i,k] for i in range(n)) <= largest );
     model.addConstr(gap == largest - smallest)
-
-
+                        
+        
     ## add continuity constraints
     w = model.addVars(n,m, name="hub_indicators",vtype = GRB.BINARY);
     # only one hub per district. This is constraint (2)
@@ -373,11 +385,15 @@ def getContinuousDistricts(blocks,districts,neighbors):
     model.update();
     model.setObjective(0);
     model.optimize(); 
-        
+
+
+# In[12]:
 
 
 # In[5]:
-(blocks, counties) = readData()
+#(blocks, counties) = readData()
+#orig_blocks = blocks;
+blocks = orig_blocks[:5000]
 #This is a population block
 print(blocks[3])
 # This is a vote by county
@@ -401,6 +417,11 @@ shapesDir = "../census_block_shape_files/tl_2010_44_tabblock10";
 indexMapping = utils.getIndexMapping(blocks);
 neighbors,neighborsByIndex = utils.getNeighbors(shapesDir,indexMapping);
 
+
+
+# In[ ]:
+
+
 (totalPop, solution, indicSol) = assign(blocks, districts, counties,neighborsByIndex, n, m)
 (sol_map, popResult, raceResult, polResult) = analyzeSolution(counties, blocks, solution, indicSol, n, m)
 print(popResult)
@@ -411,4 +432,153 @@ print(metrics)
 print(totalMetrics)
 drawMap(sol_map, m)
 
+
+# In[ ]:
+
+
+neighbors = neighborsByIndex
+#print(blocks)
+# gurobi network flow example: http://www.gurobi.com/documentation/7.5/examples/netflow_py.html
+#
+# cost function f(i,j) is the euclidian distance from block i to district j 
+# we can create a cost matrix f with rows being blocks and columns being districts
+# we can write the edges u as constrained to 0 or 1 indicating whether block i is assigned to district j
+#
+(f, arcs, capacity, totalPop, maxPop) = getCostsArcsCapacity(blocks, districts)
+#print(f)
+#print(capacity)
+
+print(totalPop)
+pop_lower = 0.1 * totalPop
+pop_upper = 0.9 * totalPop
+p = totalPop / m;
+alpha = .5;
+M = maxPop * 10 # should be as large as the largest block population. might calculate dynamically
+
+pop_cost = 3
+distance_cost = 1
+
+# Create optimization model
+model = Model('netflow')
+
+# Create variables
+# does flow equal y?
+#flow = model.addVars(n, m, name="flow")
+# same as x?
+indic = model.addVars(n, m, vtype=GRB.BINARY, name="indic")
+
+print(1)
+
+# f[i,j] * population of block i * indic[i,j]
+model.setObjective(quicksum(f[i,j] * blocks[i]["Population"] * indic[i,j] for i in range(n) for j in range(m)), GRB.MINIMIZE)
+
+# to ensure all blocks are allocated and no splitting allowed
+#model.addConstrs( (flow.sum(i,'*') == blocks[i]["Population"] for i in range(n)), "node")
+#model.addConstrs((flow[i, j] <= M * indic[i, j] for i in range(n) for j in range(m)))
+model.addConstrs((indic.sum(i, '*') == 1 for i in range(n)))
+
+#model.addConstrs( smallest <= flow.sum('*', j) for j in range(m))
+#model.addConstrs( largest >= flow.sum('*', j) for j in range(m))
+print(2)
+
+for k in range(m):
+    # constraint (10)
+    model.addConstr( quicksum(blocks[i]['Population'] * indic[i,k] for i in range(n)) >= (1-alpha)*p );
+    # constraint (11)
+    model.addConstr( quicksum(blocks[i]['Population'] * indic[i,k] for i in range(n)) <= (1+alpha)*p );
+print(3)
+
+## add continuity constraints
+w = model.addVars(n,m, name="hub_indicators",vtype = GRB.BINARY);
+# only one hub per district. This is constraint (2)
+for k in range(m):
+    model.addConstr(quicksum(w[i,k] for i in range(n)) == 1);
+print(4)
+# y_i_j is a decision variable that indicates the amount of flow from block i to block j
+# y must be nonnegative
+# will add y variables dynamically only when we find a pair
+y = {};
+
+# constraint (3) (specifically  (21) from the examples)
+for k in range(m):
+    for i in range(n):
+        # neighbors is the list of blocks adjacent to i.
+        flowInto = LinExpr();
+        neighborsOfI = neighbors[i];
+        for j in neighborsOfI:
+            # add the flow variable dynamically for the found pairs
+            # variable must be non negative
+            y[(j,i,k)] = model.addVar(name="flow_%d_%d_%d" % (j,i,k),lb=0);
+            flowInto.add(y[(j,i,k)])
+        model.addConstr(flowInto <= (n - 1) * indic[i,k]);
+print(5)
+# constraint (1) ((20) from the examples)
+for k in range(m):
+    for i in range(n):
+        neighborsOfI = neighbors[i];
+        netFlow = LinExpr();
+        for j in neighborsOfI:
+            try:
+                netFlow.add(y[(i,j,k)] - y[(j,i,k)])
+            except:
+                i;
+        model.addConstr(netFlow >= (indic[i,k] - n * w[i,k]));
+print(6)
+model.optimize()
+
+# Print solution
+if model.status == GRB.Status.OPTIMAL:
+    #solution = model.getAttr('x', flow)
+    indicSol = model.getAttr('x', indic)
+    #print(solution)
+    #print(indicSol)
+else:
+    solution = []
+    indicSol = []
+
+
+
+# In[14]:
+
+
+shapesDir = "../census_block_shape_files/tl_2010_44_tabblock10";
+indexMapping = utils.getIndexMapping(blocks);
+neighbors,neighborsByIndex = utils.getNeighbors(shapesDir,indexMapping);
+
+
+# In[23]:
+
+
+indexMapping[440010301001000]
+indexMapping[440070107021012]
+
+
+# In[3]:
+
+
+len(blocks)
+
+
+# In[14]:
+
+
+len(neighbors)
+
+
+# In[15]:
+
+
+neighborsByIndex[0]
+
+
+# In[22]:
+
+
+neighborsByIndex[0]
+
+
+# In[24]:
+
+
+type(blocks)
 
