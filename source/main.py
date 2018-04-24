@@ -212,9 +212,10 @@ def assign(blocks, districts, counties, neighbors, n, m):
     pop_lower = 0.1 * totalPop
     pop_upper = 0.8 * totalPop
     M = maxPop * 10 # should be as large as the largest block population. might calculate dynamically
-
+    alpha = .1;
+    p = totalPop / m;
     pop_cost = 5
-    distance_cost = 1
+    distance_cost = 100
 
     # Create optimization model
     model = Model('netflow')
@@ -241,7 +242,11 @@ def assign(blocks, districts, counties, neighbors, n, m):
     model.addConstrs( smallest <= flow.sum('*', j) for j in range(m))
     model.addConstrs( largest >= flow.sum('*', j) for j in range(m))
     model.addConstr(gap == largest - smallest)
-
+    for k in range(m):
+        # constraint (10)
+        model.addConstr( quicksum(blocks[i]['Population'] * indic[i,k] for i in range(n)) >= (1-alpha)*p );
+        # constraint (11)
+        model.addConstr( quicksum(blocks[i]['Population'] * indic[i,k] for i in range(n)) <= (1+alpha)*p );
     #model.addConstr( smallest >= pop_lower)
     #model.addConstr( largest <= pop_upper)
 
@@ -269,13 +274,13 @@ def assign(blocks, districts, counties, neighbors, n, m):
                 flowInto.add(y[(j,i,k)])
             model.addConstr(flowInto <= (n - 1) * indic[i,k]);
     # constraint (1) ((20) from the examples)
-    # for k in range(m):
-    #     for i in range(n):
-    #         neighborsOfI = neighbors[i];
-    #         netFlow = LinExpr();
-    #         for j in neighborsOfI:
-    #             netFlow.add(y[(i,j,k)] - y[(j,i,k)])
-    #         model.addConstr(netFlow >= (indic[i,k] - n * w[i,k]));
+    for k in range(m):
+        for i in range(n):
+            neighborsOfI = neighbors[i];
+            netFlow = LinExpr();
+            for j in neighborsOfI:
+                netFlow.add(y[(i,j,k)] - y[(j,i,k)])
+                #model.addConstr(netFlow >= (indic[i,k] - n * w[i,k]));
 
     model.optimize()
 
@@ -323,52 +328,6 @@ def getDistrictCenters(blocks,u,districtList):
         districtCenterCoords[districtId] = (x.X,y.X)
     return districtCenterCoords
 
-# dummy method to formulate constraints for continuous districts.
-# need to add these constrainst to assign() method
-# dummy method to formulate constraints for continuous districts.
-# need to add these constrainst to assign() method
-def getContinuousDistricts(blocks,districts,neighbors):
-    numBlocks = len(blocks);
-    numDistricts = len(districts);
-    m = numBlocks;
-
-    model = Model('Continuous_Districts');
-    #w_i_k is a decision variable that equals 1 if the block i is the hub of district k
-    w = model.addVars(numBlocks, numDistricts, name="hub_indicators",vtype = GRB.BINARY);
-    # only one hub per district. This is constraint (2)
-    for k in range(numDistricts):
-        model.addConstr(quicksum(w[i,k] for i in range(numBlocks)) == 1);
-    # x_i_k is a decision variable that equals 1 if the block i is assigned to district k
-    # This should be the same var as "indic"
-    x = model.addVars(numBlocks,numDistricts, name="assignment_indicator", vtype=GRB.BINARY);
-    # y_i_j is a decision variable that indicates the amount of flow from block i to block j
-    # y must be nonnegative
-    # will add y variables dynamically only when we find a pair
-    y = {};
-
-    # constraint (3) (specifically  (21) from the examples)
-    for k in range(numDistricts):
-        for i in range(numBlocks):
-            # neighbors is the list of blocks adjacent to i.
-            flowInto = LinExpr();
-            neighborsOfI = neighbors[i];
-            for j in neighborsOfI:
-                # add the flow variable dynamically for the found pairs
-                # variable must be non negative
-                y[(j,i,k)] = model.addVar(name="flow_%d_%d_%d" % (j,i,k),lb=0);
-                flowInto.add(y[(j,i,k)])
-            model.addConstr(flowInto <= (m - 1) * x[i,k]);
-    # constraint (1) ((20) from the examples)
-    for k in range(numDistricts):
-        for i in range(numBlocks):
-            neighborsOfI = neighbors[i];
-            netFlow = LinExpr();
-            for j in neighborsOfI:
-                netFlow.add(y[(i,j,k)] - y[(j,i,k)])
-            model.addConstr(netFlow >= (x[i,k] - m * w[i,k]));
-    model.update();
-    model.setObjective(0);
-    model.optimize(); 
         
 
 
