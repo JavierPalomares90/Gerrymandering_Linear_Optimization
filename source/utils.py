@@ -1,15 +1,4 @@
 
-# coding: utf-8
-
-# In[2]:
-
-
-
-# coding: utf-8
-
-# In[1]:
-
-
 import re
 import csv
 import os
@@ -105,22 +94,12 @@ def getGeography(s):
     return blockId,blockGroupId,censusTract,county,state
 
 
-def getTotalPopulation(data):
-    pop = 0
-    for key in data:
-        # sum up all of the population for a block
-        if (key.find("Population") != -1):
-            pop += int(data[key])
-    return pop
-
-
 def getFipsCountyCode(stateCode,countyCode):
     code = "%d%03d" %(stateCode,countyCode)
     return int(code)
 
 
 def getRaceData(data):
-    #geoId = int(data[i][geoIdKey]);
     white = 0
     black = 0
     native = 0
@@ -171,8 +150,6 @@ def getBlocks(popFilename,geoFilename,cdFilename):
         # skip the header row
         next(cdFile)
         lines = cdFile.readlines()
-       # expirations = list(filter(lambda x: re.search("View\sBy\sExpiration", x.get_text()), soup.find_all("td")))
-        #lines = list(filter(lambda x: re.search(RI_state_code, x), lines))
         for line in lines:
             blockId, districtId = line.partition(",")[::2]
             blockId = blockId[:-4]
@@ -210,8 +187,6 @@ def getBlocks(popFilename,geoFilename,cdFilename):
         block[geoIdKey] = geoId
         blockId,blockGroupId,censusTract,county,state = getGeography(data[i][geoKey])
         block[blockKey] = blockId
-        #totalPopulation = getTotalPopulation(data[i])
-        #block[populationKey] = totalPopulation
         block[populationKey] = int(data[i]["Total:"])
         block[countyKey] = county
         block[censusTractKey] = censusTract
@@ -416,74 +391,74 @@ def getNeighbors(shapefileDir,indexMapping):
     neighborsMap = {}
     # map by Index
     neighborsMapByIndex = {}
-    sf = shapefile.Reader(shapefileDir);
-    records = sf.records();
+    sf = shapefile.Reader(shapefileDir)
+    records = sf.records()
     # choose the "queen" neighbors. This means shapes are neighbors as long as they share a vertex.
     # alternative is the "rook", where shapes must share an edge.
-    w = ps.queen_from_shapefile(shapefileDir+".shp");
-    N = w.n;
+    w = ps.queen_from_shapefile(shapefileDir+".shp")
+    N = w.n
     for i in range(N):
         # blockId is the field in index 4
-#        blockId = int(records[i][4]);
-        blockId = int(records[i][3]);
-        index = indexMapping[blockId];
+#        blockId = int(records[i][4])
+        blockId = int(records[i][3])
+        index = indexMapping[blockId]
         # this var is a map containing the neighbors of block i, where the key is the neighbor, and value is the weight
-        neighbors = w[i];
+        neighbors = w[i]
         # map everything by blockIds instead of indices in this list
         # since this ordering is different from the blocksList
-        neighborList = [];
-        neighborIndexList = [];
+        neighborList = []
+        neighborIndexList = []
         for n in neighbors.keys():
-#            neighborId = int(records[n][4]);
-            neighborId = int(records[n][3]);
-            neighborIndex = indexMapping[neighborId];
-            neighborList.append(neighborId);
-            neighborIndexList.append(neighborIndex);
-        neighborsMap[blockId] = neighborList;
-        neighborsMapByIndex[index] = neighborIndexList;
+#            neighborId = int(records[n][4])
+            neighborId = int(records[n][3])
+            neighborIndex = indexMapping[neighborId]
+            neighborList.append(neighborId)
+            neighborIndexList.append(neighborIndex)
+        neighborsMap[blockId] = neighborList
+        neighborsMapByIndex[index] = neighborIndexList
     return neighborsMap,neighborsMapByIndex
 
 def getNeighborPairs(shapefileDir):
-    neighborPairs = [];
-    tmp = set();
-    sf = shapefile.Reader(shapefileDir);
-    records = sf.records();
+    neighborPairs = []
+    tmp = set()
+    sf = shapefile.Reader(shapefileDir)
+    records = sf.records()
     # choose the "queen" neighbors. This means shapes are neighbors as long as they share a vertex.
     # alternative is the "rook", where shapes must share an edge.
-    w = ps.queen_from_shapefile(shapefileDir+".shp");
-    N = w.n;
+    w = ps.queen_from_shapefile(shapefileDir+".shp")
+    N = w.n
     for i in range(N):
         # blockId is the field in index 4
-        blockId = int(records[i][4]);
+        blockId = int(records[i][4])
         # this var is a map containing the neighbors of block i, where the key is the neighbor, and value is the weight
-        neighbors = w[i];
+        neighbors = w[i]
         for n in neighbors.keys():
-            neighborId = int(records[n][4]);
+            neighborId = int(records[n][4])
             # pairs are unordered, we don't want to double add pairs
-            pair = (blockId,neighborId);
-            revPair = (neighborId, blockId);
+            pair = (blockId,neighborId)
+            revPair = (neighborId, blockId)
             if revPair in tmp:
-                continue;
-            tmp.add(pair);
-            neighborPairs.append(pair);
+                continue
+            tmp.add(pair)
+            neighborPairs.append(pair)
     return neighborPairs
 
 def getIndexMapping(blocks):
-    indexMapping = {};
+    indexMapping = {}
     for i in range(len(blocks)):
         blockId = blocks[i]['Id2']
-        indexMapping[blockId] = i;
+        indexMapping[blockId] = i
     return indexMapping
  # the neighborsMap is by blockId,
 # return pairs by their index according the order in the blocks list
 def getPairsFromMap(blocks,neighborsMap):
-    pairs = [];
-    indexMapping = getIndexMapping(blocks);
+    pairs = []
+    indexMapping = getIndexMapping(blocks)
     for block in neighborsMap:
-        index = indexMapping[block];
-        neighborList = neighborsMap[block];
+        index = indexMapping[block]
+        neighborList = neighborsMap[block]
         for neighbor in neighborList:
-            neighborIndex = indexMapping[neighbor];
+            neighborIndex = indexMapping[neighbor]
             pairs.append((index,neighborIndex))
     return pairs
 

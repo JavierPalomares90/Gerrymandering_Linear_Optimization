@@ -1,21 +1,3 @@
-
-# coding: utf-8
-
-# In[ ]:
-
-
-
-# coding: utf-8
-
-# In[1]:
-
-
-
-# coding: utf-8
-
-# In[1]:
-
-
 from gurobipy import *
 import utils
 from math import radians, sin, cos, acos
@@ -29,8 +11,31 @@ from matplotlib.collections import PatchCollection
 
 totalVoters = 429697
 
+
+def readDataBlock():
+    dataDir = "../census_data/"
+    # file with population data
+    populationFile = "/DEC_10_PL_P3_with_ann.csv"
+    # file with geographical data
+    geoFile = "/DEC_10_PL_G001_with_ann.csv"
+    # file with the congressional districts per block
+    cdFile = "../cd115/44_RI_CD115.txt"
+
+    dirs = utils.getSubdirs(dataDir)
+    blocks = []
+    # get all of the blocks into one list
+    for d in dirs:
+        block,popData,geoData = utils.getBlocks(dataDir + d + populationFile,dataDir + d + geoFile,cdFile)
+        blocks = blocks + block
+
+    # read the political data
+    fipsDataFile = "../census_data/st44_ri_cou.txt"
+    poliDataFile = "../political_data/US_elect_county.csv"
+    counties = utils.getPoliDataByCounty(poliDataFile, fipsDataFile)
+    return (blocks, counties)
+
+
 def readData():
-#    dataDir = "../census_data/"
     dataDir = "../census_data_tract"
     # file with population data
     populationFile = "/DEC_10_PL_P3_with_ann.csv"
@@ -41,14 +46,6 @@ def readData():
 
     blocks, popData, geoData = utils.getBlocks(dataDir + populationFile, dataDir + geoFile, cdFile)
 
-    # dirs = utils.getSubdirs(dataDir)
-    # blocks = []
-    # # get all of the blocks into one list
-    # for d in dirs:
-    #     block,popData,geoData = utils.getBlocks(dataDir + d + populationFile,dataDir + d + geoFile,cdFile)
-    #     blocks = blocks + block
-    #     #for b in block:
-    #     #    blocks.append(b)
     # read the political data
     fipsDataFile = "../census_data/st44_ri_cou.txt"
     poliDataFile = "../political_data/US_elect_county.csv"
@@ -115,8 +112,9 @@ def drawMap(solution, m):
     plt.show()
 
 
-def analyzeSolution(counties, blocks, solution, indic_sol, n, m):
+def analyzeSolution(counties, blocks, solution, n, m):
     sol_map = {}
+    tractResult = []
     popResult = []
     raceResult = []
     polResult = []
@@ -126,7 +124,7 @@ def analyzeSolution(counties, blocks, solution, indic_sol, n, m):
         county_total[county["County"]] = 0
     for j in range(m):
         totalPop = 0
-        #blocks_assigned = []
+        numAssigned = 0
         white = 0
         black = 0
         asian = 0
@@ -137,11 +135,12 @@ def analyzeSolution(counties, blocks, solution, indic_sol, n, m):
         for county in counties:
             county_distr[county["County"]] = 0
         for i in range(n):
-            if indic_sol[i, j] > 0:
-                pop = solution[i, j]
+            if solution[i, j] > 0:
                 block = blocks[i]
+                pop = block["Population"]
                 #blocks_assigned.append(i)
                 totalPop += pop
+                numAssigned += 1
                 sol_map[str(block['Id2'])] = j
                 county_distr[block["County"]] += pop
                 county_total[block["County"]] += pop
@@ -152,6 +151,7 @@ def analyzeSolution(counties, blocks, solution, indic_sol, n, m):
                 island += block["Race"]["island"]
                 other += block["Race"]["other"]
         popResult.append(totalPop)
+        tractResult.append(numAssigned)
         raceResult.append({"white": white, "black": black, "asian": asian, "native": native, "island": island, "other": other})
         county_result.append(county_distr)
         print("For district " + str(j) + ": the population is " + str(totalPop))
@@ -166,7 +166,7 @@ def analyzeSolution(counties, blocks, solution, indic_sol, n, m):
             obama_total += county["Obama vote"] * percent
             romney_total += county["Romney vote"] * percent
         polResult.append({"Obama": obama_total, "Romney": romney_total, "total": obama_total+romney_total})
-    return (sol_map, popResult, raceResult, polResult)
+    return (sol_map, popResult, tractResult, raceResult, polResult)
 
 
 def calcMetrics(popResult, raceResult, polResult, m):
@@ -196,24 +196,17 @@ def calcMetrics(popResult, raceResult, polResult, m):
     return (metrics, totalMetrics)
 
 
-def assign(blocks, districts, counties, neighbors, n, m):
-    #print(blocks)
-    # gurobi network flow example: http://www.gurobi.com/documentation/7.5/examples/netflow_py.html
-    #
+def assign(blocks, districts, neighbors, n, m):
     # cost function f(i,j) is the euclidian distance from block i to district j 
-    # we can create a cost matrix f with rows being blocks and columns being districts
-    # we can write the edges u as constrained to 0 or 1 indicating whether block i is assigned to district j
-    #
+
     (f, arcs, capacity, totalPop, maxPop) = getCostsArcsCapacity(blocks, districts)
     #print(f)
     #print(capacity)
 
     print(totalPop)
-    pop_lower = 0.1 * totalPop
-    pop_upper = 0.8 * totalPop
-    M = maxPop * 10 # should be as large as the largest block population. might calculate dynamically
-    alpha = .1;
-    p = totalPop / m;
+    M = maxPop * 10
+    alpha = .05
+    p = totalPop / m
     pop_cost = 5
     distance_cost = 100
 
@@ -221,79 +214,75 @@ def assign(blocks, districts, counties, neighbors, n, m):
     model = Model('netflow')
 
     # Create variables
-    # does flow equal y?
-    flow = model.addVars(n, m, name="flow")
-    # same as x?
-    indic = model.addVars(n, m, vtype=GRB.BINARY, name="indic")
-    smallest = model.addVar(name="min")
-    largest = model.addVar(name="max")
-    gap = model.addVar(name="gap")
+    flow = model.addVars(n, m, name="flow") # flow(i,j) = number of people from block i assigned to district j
+    indic = model.addVars(n, m, vtype=GRB.BINARY, name="indic") # indic(i,j) is an indicator of whether block i is assigned to district j
+    smallest = model.addVar(name="min")     # smallest district
+    largest = model.addVar(name="max")      # largest district
+    gap = model.addVar(name="gap")          # difference between largest and smallest
 
-
-    # f[i,j] * population of block i * indic[i,j]
+    # Objective function
     model.setObjective((distance_cost * quicksum(f[i,j] * blocks[i]["Population"] * indic[i,j] for i in range(n) for j in range(m)) +
                        pop_cost * gap), GRB.MINIMIZE)
 
+    # Constraints
     # to ensure all blocks are allocated and no splitting allowed
     model.addConstrs( (flow.sum(i,'*') == blocks[i]["Population"] for i in range(n)), "node")
     model.addConstrs((flow[i, j] <= M * indic[i, j] for i in range(n) for j in range(m)))
     model.addConstrs((indic.sum(i, '*') == 1 for i in range(n)))
 
+    # Population related constraints to help achieve equal sizes
     model.addConstrs( smallest <= flow.sum('*', j) for j in range(m))
     model.addConstrs( largest >= flow.sum('*', j) for j in range(m))
     model.addConstr(gap == largest - smallest)
     for k in range(m):
         # constraint (10)
-        model.addConstr( quicksum(blocks[i]['Population'] * indic[i,k] for i in range(n)) >= (1-alpha)*p );
+        model.addConstr( quicksum(blocks[i]['Population'] * indic[i,k] for i in range(n)) >= (1-alpha)*p )
         # constraint (11)
-        model.addConstr( quicksum(blocks[i]['Population'] * indic[i,k] for i in range(n)) <= (1+alpha)*p );
-    #model.addConstr( smallest >= pop_lower)
-    #model.addConstr( largest <= pop_upper)
+        model.addConstr( quicksum(blocks[i]['Population'] * indic[i,k] for i in range(n)) <= (1+alpha)*p )
 
-    ## add continuity constraints
-    w = model.addVars(n,m, name="hub_indicators",vtype = GRB.BINARY);
+    # add continuity constraints
+    w = model.addVars(n,m, name="hub_indicators",vtype = GRB.BINARY)
     # only one hub per district. This is constraint (2)
     for k in range(m):
-        model.addConstr(quicksum(w[i,k] for i in range(n)) == 1);
+        model.addConstr(quicksum(w[i,k] for i in range(n)) == 1)
         
     # y_i_j is a decision variable that indicates the amount of flow from block i to block j
     # y must be nonnegative
     # will add y variables dynamically only when we find a pair
-    y = {};
+    y = {}
 
     # constraint (3) (specifically  (21) from the examples)
     for k in range(m):
         for i in range(n):
             # neighbors is the list of blocks adjacent to i.
-            flowInto = LinExpr();
-            neighborsOfI = neighbors[i];
+            flowInto = LinExpr()
+            neighborsOfI = neighbors[i]
             for j in neighborsOfI:
                 # add the flow variable dynamically for the found pairs
                 # variable must be non negative
-                y[(j,i,k)] = model.addVar(name="flow_%d_%d_%d" % (j,i,k),lb=0);
+                y[(j,i,k)] = model.addVar(name="flow_%d_%d_%d" % (j,i,k),lb=0)
                 flowInto.add(y[(j,i,k)])
-            model.addConstr(flowInto <= (n - 1) * indic[i,k]);
+            model.addConstr(flowInto <= (n - 1) * indic[i,k])
+
     # constraint (1) ((20) from the examples)
     for k in range(m):
         for i in range(n):
-            neighborsOfI = neighbors[i];
-            netFlow = LinExpr();
+            neighborsOfI = neighbors[i]
+            netFlow = LinExpr()
             for j in neighborsOfI:
                 netFlow.add(y[(i,j,k)] - y[(j,i,k)])
-                #model.addConstr(netFlow >= (indic[i,k] - n * w[i,k]));
+                #model.addConstr(netFlow >= (indic[i,k] - n * w[i,k]))
+                # IS THIS SUPPOSED TO BE COMMENTED? if so, we can remove this entire chunk
 
     model.optimize()
 
     # Print solution
     if model.status == GRB.Status.OPTIMAL:
-        solution = model.getAttr('x', flow)
-        indicSol = model.getAttr('x', indic)
+        solution = model.getAttr('x', indic)
         #print(solution)
-        #print(indicSol)
     else:
         solution = []
-        indicSol = []
-    return(totalPop, solution, indicSol)
+    return(totalPop, solution)
 
 
 # get the districtCenter by minimizing the population weighted squared
@@ -333,31 +322,29 @@ def getDistrictCenters(blocks,u,districtList):
 
 # In[5]:
 (blocks, counties) = readData()
-#This is a population block
-print(blocks[3])
-# This is a vote by county
-print(counties[0])
 
 # In[2]:
 u = utils.getNumBlockInDistrict(blocks)
-#TODO: write method to figure out all districts
+
+# convert districts into correct format
 districtList= [1,2]
 districtCenters = getDistrictCenters(blocks,u,districtList)
 print(districtCenters)
 districts = [{'Latitude': districtCenters[1][1], 'Longitude': districtCenters[1][0]},
-             {'Latitude': districtCenters[2][1], 'Longitude': districtCenters[2][0]}];
+             {'Latitude': districtCenters[2][1], 'Longitude': districtCenters[2][0]}]
 
 n = len(blocks)
 m = len(districts)
 
-#shapesDir = "../census_block_shape_files/tl_2010_44_tabblock10";
+#shapesDir = "../census_block_shape_files/tl_2010_44_tabblock10"
 shapesDir = "../census_tract_shape_files/tl_2010_44_tract10"
-indexMapping = utils.getIndexMapping(blocks);
-neighbors,neighborsByIndex = utils.getNeighbors(shapesDir,indexMapping);
+indexMapping = utils.getIndexMapping(blocks)
+neighbors,neighborsByIndex = utils.getNeighbors(shapesDir,indexMapping)
 
-(totalPop, solution, indicSol) = assign(blocks, districts, counties,neighborsByIndex, n, m)
-(sol_map, popResult, raceResult, polResult) = analyzeSolution(counties, blocks, solution, indicSol, n, m)
+(totalPop, solution) = assign(blocks, districts, neighborsByIndex, n, m)
+(sol_map, popResult, tractResult, raceResult, polResult) = analyzeSolution(counties, blocks, solution, n, m)
 print(popResult)
+print(tractResult)
 print(raceResult)
 print(polResult)
 (metrics, totalMetrics) = calcMetrics(popResult, raceResult, polResult, m)
