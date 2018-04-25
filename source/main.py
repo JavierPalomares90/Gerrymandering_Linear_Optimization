@@ -108,6 +108,7 @@ def drawMap(solution, m):
 
     for i in range(m):
         ax.add_collection(PatchCollection(patches[i], facecolor=colors[i], edgecolor='k', linewidths=0., zorder=2))
+    map.readshapefile('../Congressional_Districts/Congressional_Districts', 'Congressional_Districts', drawbounds=True,color='g')
 
     plt.show()
 
