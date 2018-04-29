@@ -106,27 +106,43 @@ def getRaceData(data):
     asian = 0
     island = 0
     other = 0
+    mixed = 0
     total = int(data["Total:"])
     running = 0
     if total > 0:
         for key in race_keys:
             value = int(data[key])
             running += value
-            percentages = race_keys[key]
-            white += percentages["white"] / 100.0 * value
-            black += percentages["black"] / 100.0 * value
-            native += percentages["native"] / 100.0 * value
-            island += percentages["island"] / 100.0 * value
-            other += percentages["other"] / 100.0 * value
-            asian += percentages["asian"] / 100.0 * value
-            if running == total:
-                break
-        sum = white + black + native + island + other + asian
-        if sum < total - 1:
-            print("something wrong!")
-            print("sum is " + str(sum) + " and total is " + str(total))
-            exit(0)
-    return {"white": white, "black": black, "native": native, "island": island, "other": other, "asian": asian}
+            if re.search("White alone", key):
+                white += value
+            elif re.search("Black or African American alone", key):
+                black += value
+            elif re.search("American Indian and Alaska Native alone", key):
+                native += value
+            elif re.search("Asian alone", key):
+                asian += value
+            elif re.search("Native Hawaiian and Other Pacific Islander alone", key):
+                island += value
+            elif re.search("Some Other Race alone", key):
+                other += value
+            else:
+                mixed += value
+        #     percentages = race_keys[key]
+        #     white += percentages["white"] / 100.0 * value
+        #     black += percentages["black"] / 100.0 * value
+        #     native += percentages["native"] / 100.0 * value
+        #     island += percentages["island"] / 100.0 * value
+        #     other += percentages["other"] / 100.0 * value
+        #     asian += percentages["asian"] / 100.0 * value
+        #     if running == total:
+        #         break
+        # sum = white + black + native + island + other + asian
+        # if sum < total - 1:
+        #     print("something wrong!")
+        #     print("sum is " + str(sum) + " and total is " + str(total))
+        #     exit(0)
+    return {"white": white, "black": black, "native": native, "island": island,
+            "other": other, "asian": asian, "mixed": mixed}
 
 
 def getBlocks(popFilename,geoFilename,cdFilename):

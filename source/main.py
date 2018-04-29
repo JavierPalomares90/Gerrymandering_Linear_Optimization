@@ -132,6 +132,7 @@ def analyzeSolution(counties, blocks, solution, n, m):
         native = 0
         island = 0
         other = 0
+        mixed = 0
         county_distr = {}
         for county in counties:
             county_distr[county["County"]] = 0
@@ -151,9 +152,11 @@ def analyzeSolution(counties, blocks, solution, n, m):
                 native += block["Race"]["native"]
                 island += block["Race"]["island"]
                 other += block["Race"]["other"]
+                mixed += block["Race"]["mixed"]
         popResult.append(totalPop)
         tractResult.append(numAssigned)
-        raceResult.append({"white": white, "black": black, "asian": asian, "native": native, "island": island, "other": other})
+        raceResult.append({"white": white, "black": black, "asian": asian, "native": native, "island": island,
+                           "other": other, "mixed": mixed})
         county_result.append(county_distr)
         print("For district " + str(j) + ": the population is " + str(totalPop))
         # + " and the assigned blocks are " + str(blocks_assigned) + "\n")
@@ -180,10 +183,11 @@ def calcMetrics(popResult, raceResult, polResult, m):
         perNative = raceResult[i]["native"] / pop * 100.0
         perIsland = raceResult[i]["island"] / pop * 100.0
         perOther = raceResult[i]["other"] / pop * 100.0
+        perMixed = raceResult[i]["mixed"] / pop * 100.0
         perObama = polResult[i]["Obama"] / polResult[i]["total"] * 100.0
         perRomney = polResult[i]["Romney"] / polResult[i]["total"] * 100.0
         metrics.append({"perWhite": perWhite, "perBlack": perBlack, "perAsian": perAsian,
-                        "perNative": perNative, "perIsland": perIsland, "perOther": perOther,
+                        "perNative": perNative, "perIsland": perIsland, "perOther": perOther, "perMixed": perMixed,
                         "perObama": perObama, "perRomney": perRomney})
     totalMetrics = {"white": quicksum(raceResult[i]["white"] for i in range(m)) / totalPop * 100.0,
                     "black": quicksum(raceResult[i]["black"] for i in range(m)) / totalPop * 100.0,
@@ -191,6 +195,7 @@ def calcMetrics(popResult, raceResult, polResult, m):
                     "native": quicksum(raceResult[i]["native"] for i in range(m)) / totalPop * 100.0,
                     "island": quicksum(raceResult[i]["island"] for i in range(m)) / totalPop * 100.0,
                     "other": quicksum(raceResult[i]["other"] for i in range(m)) / totalPop * 100.0,
+                    "mixed": quicksum(raceResult[i]["mixed"] for i in range(m)) / totalPop * 100.0,
                     "Obama": quicksum(polResult[i]["Obama"] for i in range(m)) / totalVoters * 100.0,
                     "Romney": quicksum(polResult[i]["Romney"] for i in range(m)) / totalVoters * 100.0,
                     }
