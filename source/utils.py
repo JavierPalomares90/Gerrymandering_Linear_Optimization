@@ -110,23 +110,24 @@ def getRaceData(data):
     total = int(data["Total:"])
     running = 0
     if total > 0:
-        for key in race_keys:
-            value = int(data[key])
-            running += value
-            if re.search("White alone", key):
-                white += value
-            elif re.search("Black or African American alone", key):
-                black += value
-            elif re.search("American Indian and Alaska Native alone", key):
-                native += value
-            elif re.search("Asian alone", key):
-                asian += value
-            elif re.search("Native Hawaiian and Other Pacific Islander alone", key):
-                island += value
-            elif re.search("Some Other Race alone", key):
-                other += value
-            else:
-                mixed += value
+        for key in data:
+            if re.search("Population of", key):
+                value = int(data[key])
+                running += value
+                if re.search("White alone", key):
+                    white += value
+                elif re.search("Black or African American alone", key):
+                    black += value
+                elif re.search("American Indian and Alaska Native alone", key):
+                    native += value
+                elif re.search("Asian alone", key):
+                    asian += value
+                elif re.search("Native Hawaiian and Other Pacific Islander alone", key):
+                    island += value
+                elif re.search("Some Other Race alone", key):
+                    other += value
+                elif re.search("Population of .* races: -.*", key):
+                    mixed += value
         #     percentages = race_keys[key]
         #     white += percentages["white"] / 100.0 * value
         #     black += percentages["black"] / 100.0 * value

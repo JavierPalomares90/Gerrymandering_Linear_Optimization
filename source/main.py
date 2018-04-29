@@ -38,7 +38,7 @@ def readDataBlock():
 def readData():
     dataDir = "../census_data_tract"
     # file with population data
-    populationFile = "/DEC_10_PL_P3_with_ann.csv"
+    populationFile = "/DEC_10_PL_P1_with_ann.csv"
     # file with geographical data
     geoFile = "/DEC_10_PL_G001_with_ann.csv"
     # file with the congressional districts per block
@@ -210,11 +210,11 @@ def assign(blocks, districts, neighbors, n, m):
     #print(capacity)
 
     print(totalPop)
-    M = maxPop * 10
-    alpha = .05
+    M = maxPop * 1000
+    alpha = .01
     p = totalPop / m
     pop_cost = 5
-    distance_cost = 100
+    distance_cost = 1000
 
     # Create optimization model
     model = Model('netflow')
@@ -251,7 +251,7 @@ def assign(blocks, districts, neighbors, n, m):
     # only one hub per district. This is constraint (2)
     for k in range(m):
         model.addConstr(quicksum(w[i,k] for i in range(n)) == 1)
-        
+
     # y_i_j is a decision variable that indicates the amount of flow from block i to block j
     # y must be nonnegative
     # will add y variables dynamically only when we find a pair
@@ -269,7 +269,6 @@ def assign(blocks, districts, neighbors, n, m):
                 y[(j,i,k)] = model.addVar(name="flow_%d_%d_%d" % (j,i,k),lb=0)
                 flowInto.add(y[(j,i,k)])
             model.addConstr(flowInto <= (n - 1) * indic[i,k])
-
 
     model.optimize()
 
