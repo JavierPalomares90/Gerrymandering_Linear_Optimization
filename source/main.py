@@ -265,15 +265,6 @@ def assign(blocks, districts, neighbors, n, m):
                 flowInto.add(y[(j,i,k)])
             model.addConstr(flowInto <= (n - 1) * indic[i,k])
 
-    # constraint (1) ((20) from the examples)
-    for k in range(m):
-        for i in range(n):
-            neighborsOfI = neighbors[i]
-            netFlow = LinExpr()
-            for j in neighborsOfI:
-                netFlow.add(y[(i,j,k)] - y[(j,i,k)])
-                #model.addConstr(netFlow >= (indic[i,k] - n * w[i,k]))
-                # IS THIS SUPPOSED TO BE COMMENTED? if so, we can remove this entire chunk
 
     model.optimize()
 
@@ -337,7 +328,7 @@ districts = [{'Latitude': districtCenters[1][1], 'Longitude': districtCenters[1]
 n = len(blocks)
 m = len(districts)
 
-#shapesDir = "../census_block_shape_files/tl_2010_44_tabblock10"
+# shapesDir = "../census_block_shape_files/tl_2010_44_tabblock10"
 shapesDir = "../census_tract_shape_files/tl_2010_44_tract10"
 indexMapping = utils.getIndexMapping(blocks)
 neighbors,neighborsByIndex = utils.getNeighbors(shapesDir,indexMapping)
