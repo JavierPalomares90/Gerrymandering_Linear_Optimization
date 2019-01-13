@@ -4,7 +4,11 @@
 
 Gerrymandering is the process of manipulating the boundaries of political districts to favor a particular party. When this occurs, there are cases where the majority of the population may vote with one party but the majority of the seats are with the other party. This should not occur.
 
-![alt text]( https://img.washingtonpost.com/wp-apps/imrs.php?src=https://img.washingtonpost.com/blogs/wonkblog/files/2015/03/gerry.png&w=1484 "Logo Title Text 1")
+<p>
+
+![Political Gerrymandering]( https://img.washingtonpost.com/wp-apps/imrs.php?src=https://img.washingtonpost.com/blogs/wonkblog/files/2015/03/gerry.png&w=1484 "Logo Title Text 1")
+
+</p>
  This project was a proof of concept using the state of Rhode Island to see whether linear programming could be used to draw legal, fair political districts without human influence to avoid the occurrence of the above mentioned scenario
  
 ## Criteria
