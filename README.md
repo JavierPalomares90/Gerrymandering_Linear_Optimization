@@ -4,11 +4,8 @@
 
 Gerrymandering is the process of manipulating the boundaries of political districts to favor a particular party. When this occurs, there are cases where the majority of the population may vote with one party but the majority of the seats are with the other party. This should not occur.
 
-<p>
+![Political Gerrymandering](./images/gerrymandering_explained.PNG)
 
-![Political Gerrymandering]( https://img.washingtonpost.com/wp-apps/imrs.php?src=https://img.washingtonpost.com/blogs/wonkblog/files/2015/03/gerry.png&w=1484 "Logo Title Text 1")
-
-</p>
  This project was a proof of concept using the state of Rhode Island to see whether linear programming could be used to draw legal, fair political districts without human influence to avoid the occurrence of the above mentioned scenario
  
 ## Criteria
@@ -25,7 +22,8 @@ From these criteria, we can see that this is really an optimization problem. We 
 ## First Attempt
 In order to accomplish this, we first wrote constraints to cover integrity and wrote an objective function which covered compactness and population equality. At this stage, we did not explicitly cover enclaves or contiguity, hoping that compactness would indirectly satisfy these criteria. We used a network flow formulation to accomplish this where each “block” has an arc to each district center.
 
-#### TODO: Add image here
+![First Attempt](./images/first_attempt.PNG)
+
 ### Variables:
 1. F  : where F<sub>ij</sub> is the number of people from block i assigned to district j
 2. X: a binary variable where X<sub>ij</sub>  is 1 if block i is assigned to district j and 0 otherwise
@@ -57,12 +55,15 @@ l >= ∑<sub>i</sub> F<sub>ij</sub> 		for all j
 5. g = l - s
 
 ### Population Results
-### TODO: Insert table
+![Population Results](./images/population_results_first_attempt.PNG)
 
 ### Political Results 
 Based on 2012 presidential election results
+![Political Results](./images/first_attempt_political_results.PNG)
 
 ### Resulting Map
+
+![Resulting Map](./images/first_attempt_resulting_map.PNG)
 
 We can see that there is some mixing of the blue and magenta which violates the contiguity requirement. We can also see that the population results are not quite balanced. Let’s revise our formulation to include constraints that resolve this and also achieve better population equity.
 
@@ -97,16 +98,23 @@ Now we can add our contiguity constraints and population constraints
 
 ### Population Results
 
+![Population Results](./images/second_attempt_population_results.PNG)
+
 ### Political Results 
 Based on 2012 presidential election results
+![Political Results](./images/second_attempt_political_results.PNG)
 
 ### Resulting Map
+
+![Resulting Map](./images/second_attempt_resulting_map.PNG)
 
 We can see that there is no longer any mixing of the blue and the magenta. In addition, we have overlaid the lines of the current district boundaries (green). We can see that the current version has some oddly drawn lines which are an indication of gerrymandering. This is eliminated in our updated version.
 
 ### Comparison to Current Districting
 
 Our districts are not as population balanced or racially balanced as the original ones, but as seen above, they are more compact. We could improve our formulations by reducing the value of alpha, by using census blocks instead of census tracts for more flexibility and by incorporating race balancing into the formulation
+
+![Comparison ](./images/comparison_to_current_district.PNG)
 
 ## Conclusions
 Linear Programming is a promising way to generate political districts without human intervention. We were able to successfully generate population balanced, contiguous, compact districts. These districts are also fairly balanced politically. However, we could spend some time characterizing the cost function to potentially get even better results. In addition, our model does not incorporate race or political balancing at all. 
